@@ -1,0 +1,37 @@
+.history
+*.class
+*.log
+*.log.*
+*.seq
+*.seq.crc
+*.gz
+# sbt specific
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+
+# Scala-IDE specific
+.scala_dependencies
+
+# local temp files
+shard-*/
+abc/
+store/
+
+#Sublime Text
+*.sublime-workspace
+
+# Specific files
+graphdb*
+webindex*
+wikiindex*
+*.jl
+*.json
+*.7z
+conceptindex*
+dictionaryDb*
+*.txt*
+
