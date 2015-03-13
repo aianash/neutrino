@@ -65,6 +65,8 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.scroogeCore
       ++ Libs.finagleThrift
       ++ Libs.libThrift
+      ++ Libs.akka
+      ++ Libs.scaldi
   )
 
 
@@ -104,6 +106,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.mimepull
       ++ Libs.scaldi
       ++ Libs.scaldiAkka
+      ++ Libs.bijection
   ).dependsOn(core, shopplan)
 
 }
