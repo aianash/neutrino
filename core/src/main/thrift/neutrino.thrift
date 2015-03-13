@@ -16,14 +16,14 @@ service Neutrino {
   shopplan.ShopPlan newShopPlanFor(1:common.UserId userId);
   shopplan.ShopPlan getShopPlan(1:shopplan.ShopPlanId shopplanId);
 
-  bool addStores(1:shopplan.ShopPlanId shopplanId, 2:list<common.StoreId> storeId);
-  bool removeStores(1:shopplan.ShopPlanId shopplanId, 2:list<common.StoreId> storeId);
+  bool addStores(1:shopplan.ShopPlanId shopplanId, 2:list<common.StoreId> storeIds);
+  bool removeStores(1:shopplan.ShopPlanId shopplanId, 2:list<common.StoreId> storeIds);
 
-  bool addItems(1:shopplan.ShopPlanId shopplanId, 2:list<common.CatalogueItemId> itemId);
-  bool removeItems(1:shopplan.ShopPlanId shopplanId, 2:list<common.CatalogueItemId> itemId);
+  bool addItems(1:shopplan.ShopPlanId shopplanId, 2:list<common.CatalogueItemId> itemIds);
+  bool removeItems(1:shopplan.ShopPlanId shopplanId, 2:list<common.CatalogueItemId> itemIds);
 
-  bool inviteUsers(1:shopplan.ShopPlanId shopplanId, 2:list<common.UserId> userId);
-  bool removeUsersFromInvites(1:shopplan.ShopPlanId shopplanId, 2:list<common.UserId> userId);
+  bool inviteUsers(1:shopplan.ShopPlanId shopplanId, 2:list<common.UserId> userIds);
+  bool removeUsersFromInvites(1:shopplan.ShopPlanId shopplanId, 2:list<common.UserId> userIds);
   list<shopplan.Friend> getInvitedUsers(1:shopplan.ShopPlanId shopplanId);
 
   list<common.GPSLocation> getMapLocations(1:shopplan.ShopPlanId shopplanId);
