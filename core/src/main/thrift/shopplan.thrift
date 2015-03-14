@@ -6,7 +6,7 @@ namespace js neutrino.shopplan
 typedef i16 DestinationOrder
 
 struct ShopPlanId {
-  1: common.UserId userId;
+  1: common.UserId createdBy;
   2: i64 suid;
 }
 
@@ -18,7 +18,8 @@ struct Store {
 }
 
 struct DestinationId {
-  1: i64 duid;
+  1: ShopPlanId shopplanId;
+  2: i64 duid;
 }
 
 struct Destination {

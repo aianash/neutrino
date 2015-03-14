@@ -78,6 +78,6 @@ struct PostalAddress {
   3: optional AddressShort short;
   4: optional AddressFull full;
   5: optional Pincode pincode;
-  6: optional Country Country;
+  6: optional Country country;
   7: optional City city;
 }
