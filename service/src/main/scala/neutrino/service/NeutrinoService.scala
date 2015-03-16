@@ -15,12 +15,12 @@ import akka.actor.{Actor, Props}
 import akka.actor.ActorSystem
 import akka.util.Timeout
 import akka.event.Logging
-import akka.pattern.{ask, pipe}
 
 import com.goshoplane.common._
 import com.goshoplane.neutrino.service._
 import com.goshoplane.neutrino.shopplan._
 
+import neutrino.core.protocols._
 import neutrino.shopplan._, protocols._
 
 import com.twitter.util.{Future => TwitterFuture}
@@ -52,7 +52,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
   def newShopPlanFor(userId: UserId) = {
 
-    val shopPlanF = (ShopPlan ? NewShopPlanFor(userId)).mapTo[ShopPlan]
+    val shopPlanF = (ShopPlan ?= NewShopPlanFor(userId))
 
     awaitResult(shopPlanF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -63,7 +63,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def getShopPlan(shopplanId: ShopPlanId) = {
-    val shopPlanF = (ShopPlan ? GetShopPlanFor(shopplanId)).mapTo[ShopPlan]
+    val shopPlanF = (ShopPlan ?= GetShopPlanFor(shopplanId))
 
     awaitResult(shopPlanF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -74,7 +74,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def addStores(shopplanId: ShopPlanId, storeIds: scala.collection.Set[StoreId]) = {
-    val successF = (ShopPlan ? AddStores(shopplanId, storeIds)).mapTo[Boolean]
+    val successF = (ShopPlan ?= AddStores(shopplanId, storeIds))
 
     awaitResult(successF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -85,7 +85,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def removeStores(shopplanId: ShopPlanId, storeIds: Set[StoreId]) = {
-    val successF = (ShopPlan ? RemoveStores(shopplanId, storeIds)).mapTo[Boolean]
+    val successF = (ShopPlan ?= RemoveStores(shopplanId, storeIds))
 
     awaitResult(successF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -96,7 +96,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def addItems(shopplanId: ShopPlanId, itemIds: Set[CatalogueItemId]) = {
-    val successF = (ShopPlan ? AddItems(shopplanId, itemIds)).mapTo[Boolean]
+    val successF = (ShopPlan ?= AddItems(shopplanId, itemIds))
 
     awaitResult(successF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -107,7 +107,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def removeItems(shopplanId: ShopPlanId, itemIds: Set[CatalogueItemId]) = {
-    val successF = (ShopPlan ? RemoveItems(shopplanId, itemIds)).mapTo[Boolean]
+    val successF = (ShopPlan ?= RemoveItems(shopplanId, itemIds))
 
     awaitResult(successF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -118,7 +118,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def inviteUsers(shopplanId: ShopPlanId, userIds: Set[UserId]) = {
-    val successF = (ShopPlan ? InviteUsers(shopplanId, userIds)).mapTo[Boolean]
+    val successF = (ShopPlan ?= InviteUsers(shopplanId, userIds))
 
     awaitResult(successF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -129,7 +129,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def removeUsersFromInvites(shopplanId: ShopPlanId, userIds: Set[UserId]) = {
-    val successF = (ShopPlan ? RemoveUsersFromInvites(shopplanId, userIds)).mapTo[Boolean]
+    val successF = (ShopPlan ?= RemoveUsersFromInvites(shopplanId, userIds))
 
     awaitResult(successF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -140,7 +140,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def getInvitedUsers(shopplanId: ShopPlanId) = {
-    val usersF = (ShopPlan ? GetInvitedUsers(shopplanId)).mapTo[Set[Friend]]
+    val usersF = (ShopPlan ?= GetInvitedUsers(shopplanId)).mapTo[Set[Friend]]
 
     awaitResult(usersF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -151,7 +151,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def getMapLocations(shopplanId: ShopPlanId) = {
-    val locsF = (ShopPlan ? GetMapLocations(shopplanId)).mapTo[Set[GPSLocation]]
+    val locsF = (ShopPlan ?= GetMapLocations(shopplanId)).mapTo[Set[GPSLocation]]
 
     awaitResult(locsF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -162,7 +162,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def getDestinationLocs(shopplanId: ShopPlanId) = {
-    val locsF = (ShopPlan ? GetDestinations(shopplanId)).mapTo[Set[GPSLocation]]
+    val locsF = (ShopPlan ?= GetDestinations(shopplanId)).mapTo[Set[GPSLocation]]
 
     awaitResult(locsF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -173,7 +173,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def addDestinations(destReqs: Set[AddDestinationReq]) = {
-    val boolF = (ShopPlan ? AddDestinations(destReqs)).mapTo[Boolean]
+    val boolF = (ShopPlan ?= AddDestinations(destReqs))
 
     awaitResult(boolF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -183,7 +183,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def removeDestinations(destIds: Set[DestinationId]) = {
-    val successF = (ShopPlan ? RemoveDestinations(destIds)).mapTo[Boolean]
+    val successF = (ShopPlan ?= RemoveDestinations(destIds))
 
     awaitResult(successF, defaultTimeout.duration, {
       case ex: Throwable =>
@@ -193,7 +193,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
 
   def updateDestinationLoc(destId: DestinationId, location: GPSLocation) = {
-    val successF = (ShopPlan ? UpdateDestination(destId, location)).mapTo[Boolean]
+    val successF = (ShopPlan ?= UpdateDestination(destId, location))
 
     awaitResult(successF, defaultTimeout.duration, {
       case ex: Throwable =>
