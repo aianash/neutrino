@@ -20,4 +20,8 @@ package object protocols {
     def ?=[T](message: Replyable[T])(implicit timeout: Timeout, tag: ClassTag[T]): Future[T] =
       akka.pattern.ask(actorSel, message).mapTo[T]
   }
+
+  // A message used for graceful shutdown
+  case object Shutdown
+  case class ServiceUnavailable(msg: String)
 }
