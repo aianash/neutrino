@@ -4,29 +4,34 @@ namespace java com.goshoplane.neutrino.shopplan
 namespace js neutrino.shopplan
 
 typedef i16 DestinationOrder
+typedef string Title
+typedef i64 Timestamp
 
 struct ShopPlanId {
   1: common.UserId createdBy;
   2: i64 suid;
 }
 
-struct Store {
-  1: common.StoreId storeId;
-  2: string name;
-  3: list<common.SerializedCatalogueItem> collection;
-  4: optional common.PostalAddress address;
-}
-
 struct DestinationId {
   1: ShopPlanId shopplanId;
-  2: i64 duid;
+  2: i64 dtuid;
+}
+
+/**
+ * Store objec wih link to a destination
+ */
+struct DStore {
+  1: common.StoreId storeId;
+  2: common.StoreName name;
+  3: common.PostalAddress address;
+  4: optional DestinationId destId;
+  5: optional list<common.ItemType> itemTypes;
 }
 
 struct Destination {
   1: DestinationId destId;
-  2: DestinationOrder order;
-  3: optional list<Store> stores;
-  4: optional common.PostalAddress address;
+  2: common.PostalAddress address;
+  3: optional i32 numShops;
 }
 
 enum InviteStatus {
@@ -44,6 +49,9 @@ struct Friend {
 
 struct ShopPlan {
   1: ShopPlanId shopplanId;
-  2: optional list<Destination> destinations;
-  3: optional list<Friend> friends;
+  2: optional Title title;
+  3: optional list<DStore> dstores;
+  4: optional list<Destination> destinations;
+  5: optional list<Friend> invites;
+  6: bool isInvitation;
 }
