@@ -1,6 +1,7 @@
 package neutrino.service
 
 import scala.util.{Failure => TFailure, Success => TSuccess, Try}
+import scala.util.control.NonFatal
 import scala.concurrent._, duration._
 import scala.collection.Set
 
@@ -19,9 +20,14 @@ import akka.event.Logging
 import com.goshoplane.common._
 import com.goshoplane.neutrino.service._
 import com.goshoplane.neutrino.shopplan._
+import com.goshoplane.neutrino.feed._
 
 import neutrino.core.protocols._
-import neutrino.shopplan._, protocols._
+import neutrino._
+import shopplan._, shopplan.protocols._
+import user._, user.protocols._
+import bucket._, bucket.protocols._
+import feed._, feed.protocols._
 
 import com.twitter.util.{Future => TwitterFuture}
 import com.twitter.finagle.Thrift
@@ -44,163 +50,145 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
   val settings = NeutrinoSettings(system)
 
-  val ShopPlan = system.actorOf(ShopPlanSupervisor.props, "shopplan")
-
+  val ShopPlan = system.actorOf(ShopPlanSupervisor.props,     "shopplan")
+  val User     = system.actorOf(UserAccountSupervisor.props,  "user")
+  val Bucket   = system.actorOf(BucketSupervisor.props,       "bucket")
+  val Feed     = system.actorOf(FeedSupervisor.props,         "feed")
 
   implicit val defaultTimeout = Timeout(1 seconds)
 
 
-  def newShopPlanFor(userId: UserId) = {
+  ///////////////
+  // User APIs //
+  ///////////////
 
-    val shopPlanF = (ShopPlan ?= NewShopPlanFor(userId))
+  def createUser(userInfo: UserInfo) = {
+    val userIdF = User ?= CreateUser(userInfo)
 
-    awaitResult(shopPlanF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Couldn't create new shop plan for " + userId))
+    awaitResult(userIdF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while creating user"))
+    })
+  }
+
+  def updateUser(userId: UserId, userInfo: UserInfo) = {
+    val successF = User ?= UpdateUser(userId, userInfo)
+
+    awaitResult(successF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while updating user"))
     })
   }
 
 
+  def getUserDetail(userId: UserId) = {
+    val infoF = User ?= GetUserDetail(userId)
 
-  def getShopPlan(shopplanId: ShopPlanId) = {
-    val shopPlanF = (ShopPlan ?= GetShopPlanFor(shopplanId))
-
-    awaitResult(shopPlanF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while getting shop plan for " + shopplanId))
+    awaitResult(infoF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while retrieving user info"))
     })
   }
 
 
+  def getFriendsForInvite(userId: UserId, filter: FriendListFilter) = {
+    val friendsF = User ?= GetFriendsForInvite(userId, filter)
 
-  def addStores(shopplanId: ShopPlanId, storeIds: scala.collection.Set[StoreId]) = {
-    val successF = (ShopPlan ?= AddStores(shopplanId, storeIds))
-
-    awaitResult(successF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while adding stores to plan" + shopplanId))
+    awaitResult(friendsF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user friends to invite"))
     })
   }
 
 
+  /////////////////
+  // Bucket APIs //
+  /////////////////
 
-  def removeStores(shopplanId: ShopPlanId, storeIds: Set[StoreId]) = {
-    val successF = (ShopPlan ?= RemoveStores(shopplanId, storeIds))
+  def getBucketStores(userId: UserId, fields: Seq[BucketStoreField]) = {
+    val storesF = Bucket ?= GetBucketStores(userId, fields)
 
-    awaitResult(successF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while removing stores from shop plan " + shopplanId))
+    awaitResult(storesF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting bucket stores for user"))
     })
   }
 
 
+  ///////////////////
+  // ShopPlan APIs //
+  ///////////////////
 
-  def addItems(shopplanId: ShopPlanId, itemIds: Set[CatalogueItemId]) = {
-    val successF = (ShopPlan ?= AddItems(shopplanId, itemIds))
+  def getShopPlanStores(shopplanId: ShopPlanId, fields: Seq[ShopPlanStoreField]) = {
+    val storesF = ShopPlan ?= GetShopPlanStores(shopplanId, fields)
 
-    awaitResult(successF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while adding item to stores"))
+    awaitResult(storesF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting shopplan's stores"))
     })
   }
 
 
+  def getShopPlans(userId: UserId, fields: Seq[ShopPlanField]) = {
+    val shopplansF = ShopPlan ?= GetShopPlans(userId, fields)
 
-  def removeItems(shopplanId: ShopPlanId, itemIds: Set[CatalogueItemId]) = {
-    val successF = (ShopPlan ?= RemoveItems(shopplanId, itemIds))
-
-    awaitResult(successF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while removing items from from shop plan " + shopplanId))
+    awaitResult(shopplansF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user's shopplans"))
     })
   }
 
 
+  def getShopPlan(shopplanId: ShopPlanId, fields: Seq[ShopPlanField]) = {
+    val shopplanF = ShopPlan ?= GetShopPlan(shopplanId, fields)
 
-  def inviteUsers(shopplanId: ShopPlanId, userIds: Set[UserId]) = {
-    val successF = (ShopPlan ?= InviteUsers(shopplanId, userIds))
-
-    awaitResult(successF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while sending invites for shop plan " + shopplanId))
+    awaitResult(shopplanF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user shopplan detail"))
     })
   }
 
 
+  def createShopPlan(userId: UserId, cud: CUDShopPlan) = {
+    val shopplanIdF = ShopPlan ?= CreateShopPlan(userId, cud)
 
-  def removeUsersFromInvites(shopplanId: ShopPlanId, userIds: Set[UserId]) = {
-    val successF = (ShopPlan ?= RemoveUsersFromInvites(shopplanId, userIds))
-
-    awaitResult(successF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while removing invites for shop plan " + shopplanId))
+    awaitResult(shopplanIdF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while creating shopplan for user"))
     })
   }
 
 
+  def cudShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan) = {
+    val successF = ShopPlan ?= ModifyShopPlan(shopplanId, cud)
 
-  def getInvitedUsers(shopplanId: ShopPlanId) = {
-    val usersF = (ShopPlan ?= GetInvitedUsers(shopplanId)).mapTo[Set[Friend]]
-
-    awaitResult(usersF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while fetching invited users"))
+    awaitResult(successF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while create/update/delete shopplan"))
     })
   }
 
 
+  def endShopPlan(shopplanId: ShopPlanId) = {
+    val successF = ShopPlan ?= EndShopPlan(shopplanId)
 
-  def getMapLocations(shopplanId: ShopPlanId) = {
-    val locsF = (ShopPlan ?= GetMapLocations(shopplanId)).mapTo[Set[GPSLocation]]
-
-    awaitResult(locsF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while fetching invited users"))
+    awaitResult(successF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while ending shopplan"))
     })
   }
 
 
+  ///////////////
+  // Feed APIs //
+  ///////////////
 
-  def getDestinationLocs(shopplanId: ShopPlanId) = {
-    val locsF = (ShopPlan ?= GetDestinations(shopplanId)).mapTo[Set[GPSLocation]]
+  def getCommonFeed(filter: FeedFilter) = {
+    val feedF = Feed ?= GetCommonFeed(filter)
 
-    awaitResult(locsF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while fetching invited users"))
+    awaitResult(feedF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting common feed"))
     })
   }
 
 
+  def getUserFeed(userId: UserId, filter: FeedFilter) = {
+    val feedF = Feed ?= GetUserFeed(userId, filter)
 
-  def addDestinations(destReqs: Set[AddDestinationReq]) = {
-    val boolF = (ShopPlan ?= AddDestinations(destReqs))
-
-    awaitResult(boolF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while fetching invited users"))
+    awaitResult(feedF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user feed"))
     })
   }
 
-
-  def removeDestinations(destIds: Set[DestinationId]) = {
-    val successF = (ShopPlan ?= RemoveDestinations(destIds))
-
-    awaitResult(successF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while fetching invited users"))
-    })
-  }
-
-
-  def updateDestinationLoc(destId: DestinationId, location: GPSLocation) = {
-    val successF = (ShopPlan ?= UpdateDestination(destId, location))
-
-    awaitResult(successF, defaultTimeout.duration, {
-      case ex: Throwable =>
-        TFailure(NeutrinoException("Error while fetching invited users"))
-    })
-
-  }
 
 
   /**

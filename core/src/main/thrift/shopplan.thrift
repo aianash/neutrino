@@ -17,15 +17,35 @@ struct DestinationId {
   2: i64 dtuid;
 }
 
-/**
- * Store objec wih link to a destination
- */
-struct DStore {
+enum BucketStoreField {
+  NAME            = 1;
+  ADDRESS         = 2;
+  ITEM_TYPES      = 3;
+  CATALOGUE_ITEMS = 4;
+}
+
+struct BucketStore {
   1: common.StoreId storeId;
-  2: common.StoreName name;
-  3: common.PostalAddress address;
-  4: optional DestinationId destId;
+  2: optional common.StoreName name;
+  3: optional common.PostalAddress address;
+  4: optional list<common.ItemType> itemTypes;
+  5: optional list<common.SerializedCatalogueItem> catalogueItems;
+}
+
+enum ShopPlanStoreField {
+  NAME            = 1;
+  ADDRESS         = 2;
+  ITEM_TYPES      = 3;
+  CATALOGUE_ITEMS = 4;
+}
+
+struct ShopPlanStore {
+  1: common.StoreId storeId;
+  2: DestinationId destId;
+  3: optional common.StoreName name;
+  4: optional common.PostalAddress address;
   5: optional list<common.ItemType> itemTypes;
+  6: optional list<common.SerializedCatalogueItem> catalogueItems;
 }
 
 struct Destination {
@@ -47,10 +67,18 @@ struct Friend {
   4: optional InviteStatus inviteStatus;
 }
 
+enum ShopPlanField {
+  TITLE           = 1;
+  STORES          = 2;
+  CATALOGUE_ITEMS = 3;
+  DESTINATIONS    = 4;
+  INVITES         = 5;
+}
+
 struct ShopPlan {
   1: ShopPlanId shopplanId;
   2: optional Title title;
-  3: optional list<DStore> dstores;
+  3: optional list<ShopPlanStore> shopplanStores;
   4: optional list<Destination> destinations;
   5: optional list<Friend> invites;
   6: bool isInvitation;

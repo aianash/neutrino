@@ -12,6 +12,7 @@ typedef double Latitude
 typedef double Longitude
 typedef string Email
 typedef string Timezone
+typedef string FBToken
 
 
 enum Locale {
@@ -27,6 +28,7 @@ struct UserId {
   1: i64 uuid;
 }
 
+
 struct UserName {
   1: optional string first;
   2: optional string last;
@@ -37,6 +39,23 @@ struct UserAvatar {
   1: optional Url small;
   2: optional Url medium;
   3: optional Url large;
+}
+
+
+struct FacebookInfo {
+  1: UserId userId;
+  2: FBToken token;
+}
+
+struct UserInfo {
+  1: optional UserName names;
+  2: optional Locale locale;
+  3: optional Gender gender;
+  4: optional FacebookInfo facebookInfo;
+  5: optional Email email;
+  6: optional Timezone timezone;
+  7: optional UserAvatar avatar;
+  8: optional bool isNew;
 }
 
 enum ItemType {

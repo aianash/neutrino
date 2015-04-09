@@ -1,7 +1,7 @@
 include 'common.thrift'
 
-namespace java com.goshoplane.feed
-namespace js goshoplane.feed
+namespace java com.goshoplane.neutrino.feed
+namespace js neutrino.feed
 
 typedef i32    PageIndex
 typedef i32    StreamIndex
