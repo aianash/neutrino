@@ -18,17 +18,17 @@ object TestNeutrinoClient {
   def main(args: Array[String]) {
     val client = Thrift.newIface[Neutrino.FutureIface]("localhost:2424")
 
-    val f = client.newShopPlanFor(UserId(1L))
+    // val f = client.newShopPlanFor(UserId(1L))
 
-    Await.ready(f)
+    // Await.ready(f)
 
-    f onSuccess { response =>
-      println(response)
-    }
+    // f onSuccess { response =>
+    //   println(response)
+    // }
 
-    f onFailure {
-      case ex: Exception => ex.printStackTrace
-    }
+    // f onFailure {
+    //   case ex: Exception => ex.printStackTrace
+    // }
 
   }
 }

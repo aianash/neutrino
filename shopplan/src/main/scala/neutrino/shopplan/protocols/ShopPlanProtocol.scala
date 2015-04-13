@@ -13,14 +13,14 @@ sealed trait ShopPlanSupervisorMessages extends Serializable
 case class NewShopPlanFor(userId: UserId)
   extends ShopPlanSupervisorMessages with Replyable[ShopPlan]
 
-case class AddDestinations(destReqs: Set[AddDestinationReq])
-  extends ShopPlanSupervisorMessages with Replyable[Boolean]
+case class GetOwnShopPlans(userId: UserId, fields: Seq[ShopPlanField])
+  extends ShopPlanSupervisorMessages with Replyable[Seq[ShopPlan]]
 
-case class RemoveDestinations(destIds: Set[DestinationId])
-  extends ShopPlanSupervisorMessages with Replyable[Boolean]
+case class GetInvitedShopPlans(userId: UserId, fields: Seq[ShopPlanField])
+  extends ShopPlanSupervisorMessages with Replyable[Seq[ShopPlan]]
 
-
-
+case class CreateShopPlan(userId: UserId, cud: CUDShopPlan)
+  extends ShopPlanSupervisorMessages with Replyable[ShopPlanId]
 
 
 
@@ -29,46 +29,17 @@ sealed trait ShopPlanMessages extends Serializable {
   def shopplanId: ShopPlanId
 }
 
-case class AddStores(shopplanId: ShopPlanId, storeIds: Set[StoreId])
-  extends ShopPlanMessages with Replyable[Boolean]
+case class GetShopPlanStores(shopplanId: ShopPlanId, fields: Seq[ShopPlanStoreField])
+  extends ShopPlanMessages with Replyable[Seq[ShopPlanStore]]
 
-case class GetShopPlanFor(shopplanId: ShopPlanId)
+case class GetShopPlan(shopplanId: ShopPlanId, fields: Seq[ShopPlanField])
   extends ShopPlanMessages with Replyable[ShopPlan]
 
-case class RemoveStores(shopplanId: ShopPlanId, storeIds: Set[StoreId])
+case class AddNewShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan)
+  extends ShopPlanMessages with Replyable[ShopPlanId]
+
+case class ModifyShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan)
   extends ShopPlanMessages with Replyable[Boolean]
 
-
-case class AddItems(shopplanId: ShopPlanId, itemIds: Set[CatalogueItemId])
+case class EndShopPlan(shopplanId: ShopPlanId)
   extends ShopPlanMessages with Replyable[Boolean]
-
-case class RemoveItems(shopplanId: ShopPlanId, itemIds: Set[CatalogueItemId])
-  extends ShopPlanMessages with Replyable[Boolean]
-
-case class InviteUsers(shopplanId: ShopPlanId, userIds: Set[UserId])
-  extends ShopPlanMessages with Replyable[Boolean]
-
-case class RemoveUsersFromInvites(shopplanId: ShopPlanId, userIds: Set[UserId])
-  extends ShopPlanMessages with Replyable[Boolean]
-
-case class GetInvitedUsers(shopplanId: ShopPlanId)
-  extends ShopPlanMessages with Replyable[Set[Friend]]
-
-case class GetMapLocations(shopplanId: ShopPlanId)
-  extends ShopPlanMessages with Replyable[Set[GPSLocation]]
-
-case class GetDestinations(shopplanId: ShopPlanId)
-  extends ShopPlanMessages with Replyable[Set[GPSLocation]]
-
-case class AddDestination(destReq: AddDestinationReq) extends ShopPlanMessages with Replyable[Boolean] {
-  val shopplanId = destReq.id.shopplanId
-}
-
-case class RemoveDestination(destId: DestinationId) extends ShopPlanMessages with Replyable[Boolean] {
-  val shopplanId = destId.shopplanId
-}
-
-case class UpdateDestination(destId: DestinationId, location: GPSLocation)
-  extends ShopPlanMessages with Replyable[Boolean] {
-  val shopplanId = destId.shopplanId
-}

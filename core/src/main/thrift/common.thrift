@@ -59,7 +59,7 @@ struct UserInfo {
 }
 
 enum ItemType {
-  apparel_men = 1;
+  ApparelMen = 1;
 }
 
 struct StoreId {

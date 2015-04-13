@@ -45,12 +45,17 @@ trait Libraries {
     val odelay          = "0.1.0"
     val cassandraCore   = "2.1.4"
     val phantom         = "1.5.0"
+    val play            = "2.3.8"
     val researchpaperParser = "1.0"
   }
 
 
 
   object Libs {
+
+    val playJson = Seq (
+      "com.typesafe.play" %% "play-json" % Version.play)
+
 
     val phantom = Seq (
       "com.websudos" %% "phantom-dsl" % Version.phantom,

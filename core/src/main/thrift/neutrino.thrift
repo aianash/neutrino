@@ -14,25 +14,30 @@ struct FriendListFilter {
 }
 
 struct CUDDestination {
-  1: optional list<shopplan.Destination> creates;
+  1: optional list<shopplan.Destination> adds;
   2: optional list<shopplan.Destination> updates;
-  3: optional list<shopplan.DestinationId> deletes;
+  3: optional list<shopplan.DestinationId> removals;
 }
 
 struct CUDInvites {
-  1: optional list<shopplan.Friend> adds;
-  2: optional list<common.UserId> removes;
+  1: optional list<shopplan.Invite> adds;
+  2: optional list<common.UserId> removals;
 }
 
 struct CUDShopPlanStore {
   1: optional list<shopplan.ShopPlanStore> adds;
-  2: optional list<common.StoreId> removes;
+  2: optional list<common.StoreId> removals;
+}
+
+struct CUDShopPlanMeta {
+  1: optional string title;
 }
 
 struct CUDShopPlan {
-  1: optional CUDDestination destinations;
-  2: optional CUDInvites invites;
-  3: optional CUDShopPlanStore shopplanStores;
+  1: optional CUDShopPlanMeta meta;
+  2: optional CUDDestination destinations;
+  3: optional CUDInvites invites;
+  4: optional CUDShopPlanStore stores;
 }
 
 service Neutrino {
@@ -49,8 +54,9 @@ service Neutrino {
 
   #/** ShopPlan APIs */
   list<shopplan.ShopPlanStore> getShopPlanStores(1:shopplan.ShopPlanId shopplanId, 2:list<shopplan.ShopPlanStoreField> fields) throws (1:NeutrinoException nex);
-  list<shopplan.ShopPlan> getShopPlans(1:common.UserId userId, 2:list<shopplan.ShopPlanField> fields) throws (1:NeutrinoException nex);
+  list<shopplan.ShopPlan> getOwnShopPlans(1:common.UserId userId, 2:list<shopplan.ShopPlanField> fields) throws (1:NeutrinoException nex);
   shopplan.ShopPlan getShopPlan(1:shopplan.ShopPlanId shopplanId, 2:list<shopplan.ShopPlanField> fields) throws (1:NeutrinoException nex);
+  list<shopplan.ShopPlan> getInvitedShopPlans(1:common.UserId userId, 2:list<shopplan.ShopPlanField> fields) throws (1:NeutrinoException nex);
 
   shopplan.ShopPlanId createShopPlan(1:common.UserId userId, 2:CUDShopPlan cud) throws (1:NeutrinoException nex);
   bool cudShopPlan(1:shopplan.ShopPlanId shopplanId, 2:CUDShopPlan cud) throws (1:NeutrinoException nex);

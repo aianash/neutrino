@@ -28,8 +28,8 @@ struct BucketStore {
   1: common.StoreId storeId;
   2: optional common.StoreName name;
   3: optional common.PostalAddress address;
-  4: optional list<common.ItemType> itemTypes;
-  5: optional list<common.SerializedCatalogueItem> catalogueItems;
+  4: optional set<common.ItemType> itemTypes;
+  5: optional set<common.SerializedCatalogueItem> catalogueItems;
 }
 
 enum ShopPlanStoreField {
@@ -44,8 +44,8 @@ struct ShopPlanStore {
   2: DestinationId destId;
   3: optional common.StoreName name;
   4: optional common.PostalAddress address;
-  5: optional list<common.ItemType> itemTypes;
-  6: optional list<common.SerializedCatalogueItem> catalogueItems;
+  5: optional set<common.ItemType> itemTypes;
+  6: optional set<common.SerializedCatalogueItem> catalogueItems;
 }
 
 struct Destination {
@@ -64,7 +64,14 @@ struct Friend {
   1: common.UserId id;
   2: optional common.UserName name;
   3: optional common.UserAvatar avatar;
-  4: optional InviteStatus inviteStatus;
+}
+
+struct Invite {
+  1: common.UserId friendId;
+  2: ShopPlanId shopplanId;
+  3: optional common.UserName name;
+  4: optional common.UserAvatar avatar;
+  5: optional InviteStatus inviteStatus;
 }
 
 enum ShopPlanField {
@@ -78,8 +85,8 @@ enum ShopPlanField {
 struct ShopPlan {
   1: ShopPlanId shopplanId;
   2: optional Title title;
-  3: optional list<ShopPlanStore> shopplanStores;
+  3: optional list<ShopPlanStore> stores;
   4: optional list<Destination> destinations;
-  5: optional list<Friend> invites;
+  5: optional list<Invite> invites;
   6: bool isInvitation;
 }

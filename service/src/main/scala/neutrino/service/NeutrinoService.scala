@@ -123,14 +123,22 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
   }
 
 
-  def getShopPlans(userId: UserId, fields: Seq[ShopPlanField]) = {
-    val shopplansF = ShopPlan ?= GetShopPlans(userId, fields)
+  def getOwnShopPlans(userId: UserId, fields: Seq[ShopPlanField]) = {
+    val shopplansF = ShopPlan ?= GetOwnShopPlans(userId, fields)
 
     awaitResult(shopplansF, 500 milliseconds, {
       case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user's shopplans"))
     })
   }
 
+
+  def getInvitedShopPlans(userId: UserId, fields: Seq[ShopPlanField]) = {
+    val shopplansF = ShopPlan ?= GetInvitedShopPlans(userId, fields)
+
+    awaitResult(shopplansF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user's invited shopplans"))
+    })
+  }
 
   def getShopPlan(shopplanId: ShopPlanId, fields: Seq[ShopPlanField]) = {
     val shopplanF = ShopPlan ?= GetShopPlan(shopplanId, fields)
