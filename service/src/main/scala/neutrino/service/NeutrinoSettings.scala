@@ -32,5 +32,5 @@ object NeutrinoSettings extends ExtensionId[NeutrinoSettings] with ExtensionIdPr
   override def createExtension(system: ExtendedActorSystem) =
     new NeutrinoSettings(system.settings.config)
 
-  override def get(system: ActorSystem): NeutrinoSettings = super.get(system);
+  override def get(system: ActorSystem): NeutrinoSettings = super.get(system)
 }

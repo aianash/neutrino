@@ -1,7 +1,9 @@
 package neutrino.service
 
 import scala.util.{Failure => TFailure, Success => TSuccess, Try}
+import scala.util.control.NonFatal
 import scala.concurrent._, duration._
+import scala.collection.Set
 
 import scalaz._, Scalaz._
 import scalaz.std.option._
@@ -18,6 +20,14 @@ import akka.event.Logging
 import com.goshoplane.common._
 import com.goshoplane.neutrino.service._
 import com.goshoplane.neutrino.shopplan._
+import com.goshoplane.neutrino.feed._
+
+import neutrino.core.protocols._
+import neutrino._
+import shopplan._, shopplan.protocols._
+import user._, user.protocols._
+import bucket._, bucket.protocols._
+import feed._, feed.protocols._
 
 import com.twitter.util.{Future => TwitterFuture}
 import com.twitter.finagle.Thrift
@@ -26,10 +36,6 @@ import com.twitter.bijection.Conversion.asMethod
 
 import com.typesafe.config.{Config, ConfigFactory}
 
-import com.twitter.util.{Future => TwitterFuture}
-import com.twitter.finagle.Thrift
-
-import com.typesafe.config.{Config, ConfigFactory}
 
 
 class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
@@ -44,64 +50,162 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
   val settings = NeutrinoSettings(system)
 
+  val ShopPlan = system.actorOf(ShopPlanSupervisor.props,     "shopplan")
+  val User     = system.actorOf(UserAccountSupervisor.props,  "user")
+  val Bucket   = system.actorOf(BucketSupervisor.props,       "bucket")
+  val Feed     = system.actorOf(FeedSupervisor.props,         "feed")
+
+  implicit val defaultTimeout = Timeout(1 seconds)
 
 
-  def newShopPlanFor(userId: UserId) = {
-    val shopplanId = ShopPlanId(userId, 2L);
+  ///////////////
+  // User APIs //
+  ///////////////
 
-    TwitterFuture.value(ShopPlan(shopplanId))
+  def createUser(userInfo: UserInfo) = {
+    val userIdF = User ?= CreateUser(userInfo)
+
+    awaitResult(userIdF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while creating user"))
+    })
   }
 
-  def getShopPlan(shopplanId: ShopPlanId) = {
-    TwitterFuture.value(ShopPlan(shopplanId))
+  def updateUser(userId: UserId, userInfo: UserInfo) = {
+    val successF = User ?= UpdateUser(userId, userInfo)
+
+    awaitResult(successF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while updating user"))
+    })
   }
 
-  def addStores(shopplanId: ShopPlanId, storeIds: Seq[StoreId]) = {
-    TwitterFuture.value(true)
+
+  def getUserDetail(userId: UserId) = {
+    val infoF = User ?= GetUserDetail(userId)
+
+    awaitResult(infoF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while retrieving user info"))
+    })
   }
 
-  def removeStores(shopplanId: ShopPlanId, storeIds: Seq[StoreId]) = {
-    TwitterFuture.value(true)
+
+  def getFriendsForInvite(userId: UserId, filter: FriendListFilter) = {
+    val friendsF = User ?= GetFriendsForInvite(userId, filter)
+
+    awaitResult(friendsF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user friends to invite"))
+    })
   }
 
-  def addItems(shopplanId: ShopPlanId, itemIds: Seq[CatalogueItemId]) = {
-    TwitterFuture.value(true)
+
+  /////////////////
+  // Bucket APIs //
+  /////////////////
+
+  def getBucketStores(userId: UserId, fields: Seq[BucketStoreField]) = {
+    val storesF = Bucket ?= GetBucketStores(userId, fields)
+
+    awaitResult(storesF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting bucket stores for user"))
+    })
   }
 
-  def removeItems(shopplanId: ShopPlanId, itemIds: Seq[CatalogueItemId]) = {
-    TwitterFuture.value(true)
+
+  ///////////////////
+  // ShopPlan APIs //
+  ///////////////////
+
+  def getShopPlanStores(shopplanId: ShopPlanId, fields: Seq[ShopPlanStoreField]) = {
+    val storesF = ShopPlan ?= GetShopPlanStores(shopplanId, fields)
+
+    awaitResult(storesF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting shopplan's stores"))
+    })
   }
 
-  def inviteUsers(shopplanId: ShopPlanId, userIds: Seq[UserId]) = {
-    TwitterFuture.value(true)
+
+  def getOwnShopPlans(userId: UserId, fields: Seq[ShopPlanField]) = {
+    val shopplansF = ShopPlan ?= GetOwnShopPlans(userId, fields)
+
+    awaitResult(shopplansF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user's shopplans"))
+    })
   }
 
-  def removeUsersFromInvites(shopplanId: ShopPlanId, userIds: Seq[UserId]) = {
-    TwitterFuture.value(true)
+
+  def getInvitedShopPlans(userId: UserId, fields: Seq[ShopPlanField]) = {
+    val shopplansF = ShopPlan ?= GetInvitedShopPlans(userId, fields)
+
+    awaitResult(shopplansF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user's invited shopplans"))
+    })
   }
 
-  def getInvitedUsers(shopplanId: ShopPlanId) = {
-    TwitterFuture.value(List.empty[Friend])
+  def getShopPlan(shopplanId: ShopPlanId, fields: Seq[ShopPlanField]) = {
+    val shopplanF = ShopPlan ?= GetShopPlan(shopplanId, fields)
+
+    awaitResult(shopplanF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user shopplan detail"))
+    })
   }
 
-  def getMapLocations(shopplanId: ShopPlanId) = {
-    TwitterFuture.value(List.empty[GPSLocation])
+
+  def createShopPlan(userId: UserId, cud: CUDShopPlan) = {
+    val shopplanIdF = ShopPlan ?= CreateShopPlan(userId, cud)
+
+    awaitResult(shopplanIdF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while creating shopplan for user"))
+    })
   }
 
-  def getDestinations(shopplanId: ShopPlanId) = {
-    TwitterFuture.value(List.empty[GPSLocation])
+
+  def cudShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan) = {
+    val successF = ShopPlan ?= ModifyShopPlan(shopplanId, cud)
+
+    awaitResult(successF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while create/update/delete shopplan"))
+    })
   }
 
-  def addDestinations(destReqs: Seq[AddDestinationReq]) = {
-    TwitterFuture.value(true)
+
+  def endShopPlan(shopplanId: ShopPlanId) = {
+    val successF = ShopPlan ?= EndShopPlan(shopplanId)
+
+    awaitResult(successF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while ending shopplan"))
+    })
   }
 
-  def removeDestinations(destinations: Seq[DestinationId]) = {
-    TwitterFuture.value(true)
+
+  ///////////////
+  // Feed APIs //
+  ///////////////
+
+  def getCommonFeed(filter: FeedFilter) = {
+    val feedF = Feed ?= GetCommonFeed(filter)
+
+    awaitResult(feedF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting common feed"))
+    })
   }
 
-  def updateDestinationLoc(destId: DestinationId, location: GPSLocation) = {
-    TwitterFuture.value(true)
+
+  def getUserFeed(userId: UserId, filter: FeedFilter) = {
+    val feedF = Feed ?= GetUserFeed(userId, filter)
+
+    awaitResult(feedF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user feed"))
+    })
+  }
+
+
+
+  /**
+   * A helper method to await on Scala Future and encapsulate the result into TwitterFuture
+   */
+  private def awaitResult[T, U >: T](future: Future[T], timeout: Duration, ex: PartialFunction[Throwable, Try[U]]): TwitterFuture[U] = {
+    TwitterFuture.value(Try {
+      Await.result(future, timeout)
+    } recoverWith(ex) get)
   }
 
 }

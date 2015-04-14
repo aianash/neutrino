@@ -28,12 +28,18 @@ object NeutrinoBuild extends Build with Libraries {
     javaOptions += "-Xmx2500M",
 
     resolvers ++= Seq(
-      "ReaderDeck Releases" at "http://repo.readerdeck.com/artifactory/readerdeck-releases",
-      "anormcypher" at "http://repo.anormcypher.org/",
-      "Akka Repository" at "http://repo.akka.io/releases",
-      "Spray Repository" at "http://repo.spray.io/",
-      "twitter-repo" at "http://maven.twttr.com",
-      "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
+      "ReaderDeck Releases"    at "http://repo.readerdeck.com/artifactory/readerdeck-releases",
+      "anormcypher"            at "http://repo.anormcypher.org/",
+      "Akka Repository"        at "http://repo.akka.io/releases",
+      "Spray Repository"       at "http://repo.spray.io/",
+      "twitter-repo"           at "http://maven.twttr.com",
+      "Typesafe Repository"    at "http://repo.typesafe.com/typesafe/releases/",
+      "Websudos releases"      at "http://maven.websudos.co.uk/ext-release-local",
+      "Websudos snapshots"     at "http://maven.websudos.co.uk/ext-snapshot-local",
+      "Sonatype repo"          at "https://oss.sonatype.org/content/groups/scala-tools/",
+      "Sonatype releases"      at "https://oss.sonatype.org/content/repositories/releases",
+      "Sonatype snapshots"     at "https://oss.sonatype.org/content/repositories/snapshots",
+      "Sonatype staging"       at "http://oss.sonatype.org/content/repositories/staging",
       "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
     ),
 
@@ -46,7 +52,10 @@ object NeutrinoBuild extends Build with Libraries {
     base = file("."),
     settings = Project.defaultSettings ++
       sharedSettings
-  ) aggregate (core, shopplan, service)
+  ).settings(
+    libraryDependencies ++= Seq(
+    ) ++ Libs.akka
+  ) aggregate (core, user, bucket, feed, shopplan, service)
 
 
 
@@ -67,7 +76,61 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.libThrift
       ++ Libs.akka
       ++ Libs.scaldi
+      ++ Libs.fastutil
   )
+
+
+
+  lazy val user = Project(
+    id = "neutrino-user",
+    base = file("user"),
+    settings = Project.defaultSettings ++
+      sharedSettings ++
+      SbtStartScript.startScriptForClassesSettings
+  ).settings(
+    name := "neutrino-user",
+
+    libraryDependencies ++= Seq(
+    ) ++ Libs.akka
+      ++ Libs.slf4j
+      ++ Libs.logback
+      ++ Libs.phantom
+  ).dependsOn(core)
+
+
+  lazy val bucket = Project(
+    id = "neutrino-bucket",
+    base = file("bucket"),
+    settings = Project.defaultSettings ++
+      sharedSettings ++
+      SbtStartScript.startScriptForClassesSettings
+  ).settings(
+    name := "neutrino-bucket",
+
+    libraryDependencies ++= Seq(
+    ) ++ Libs.akka
+      ++ Libs.slf4j
+      ++ Libs.logback
+      ++ Libs.phantom
+  ).dependsOn(core)
+
+
+
+  lazy val feed = Project(
+    id = "neutrino-feed",
+    base = file("feed"),
+    settings = Project.defaultSettings ++
+      sharedSettings ++
+      SbtStartScript.startScriptForClassesSettings
+  ).settings(
+    name := "neutrino-feed",
+
+    libraryDependencies ++= Seq(
+    ) ++ Libs.akka
+      ++ Libs.slf4j
+      ++ Libs.logback
+      ++ Libs.phantom
+  ).dependsOn(core)
 
 
 
@@ -84,6 +147,8 @@ object NeutrinoBuild extends Build with Libraries {
     ) ++ Libs.akka
       ++ Libs.slf4j
       ++ Libs.logback
+      ++ Libs.phantom
+      ++ Libs.playJson
   ).dependsOn(core)
 
 
@@ -107,6 +172,6 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.scaldi
       ++ Libs.scaldiAkka
       ++ Libs.bijection
-  ).dependsOn(core, shopplan)
+  ).dependsOn(core, user, bucket, feed, shopplan)
 
 }

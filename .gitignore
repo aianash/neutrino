@@ -16,10 +16,7 @@ project/plugins/project/
 # Scala-IDE specific
 .scala_dependencies
 
-# local temp files
-shard-*/
-abc/
-store/
+
 
 #Sublime Text
 *.sublime-workspace

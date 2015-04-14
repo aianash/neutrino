@@ -10,17 +10,24 @@ typedef string AddressShort
 typedef string AddressFull
 typedef double Latitude
 typedef double Longitude
+typedef string Email
+typedef string Timezone
+typedef string FBToken
 
 
-enum UserIdType {
-  FB = 1;
-  Higgs = 2;
+enum Locale {
+  EN_US = 1;
+}
+
+enum Gender {
+  FEMALE = 1;
+  MALE = 2;
 }
 
 struct UserId {
   1: i64 uuid;
-  2: optional UserIdType type;
 }
+
 
 struct UserName {
   1: optional string first;
@@ -34,16 +41,35 @@ struct UserAvatar {
   3: optional Url large;
 }
 
-enum StoreType {
-  CLOTHING = 1;
-  ELECTRONICS = 2;
+
+struct FacebookInfo {
+  1: UserId userId;
+  2: FBToken token;
+}
+
+struct UserInfo {
+  1: optional UserName names;
+  2: optional Locale locale;
+  3: optional Gender gender;
+  4: optional FacebookInfo facebookInfo;
+  5: optional Email email;
+  6: optional Timezone timezone;
+  7: optional UserAvatar avatar;
+  8: optional bool isNew;
+}
+
+enum ItemType {
+  ApparelMen = 1;
 }
 
 struct StoreId {
   1: i64 stuid;
-  2: StoreType type;
 }
 
+struct StoreName {
+  1: optional string full;
+  2: optional string handle;
+}
 
 struct CatalogueItemId {
   1: i64 cuid;
@@ -78,6 +104,6 @@ struct PostalAddress {
   3: optional AddressShort short;
   4: optional AddressFull full;
   5: optional Pincode pincode;
-  6: optional Country Country;
+  6: optional Country country;
   7: optional City city;
 }
