@@ -44,11 +44,11 @@ struct UserAvatar {
 
 struct FacebookInfo {
   1: UserId userId;
-  2: FBToken token;
+  2: optional FBToken token;
 }
 
 struct UserInfo {
-  1: optional UserName names;
+  1: optional UserName name;
   2: optional Locale locale;
   3: optional Gender gender;
   4: optional FacebookInfo facebookInfo;
