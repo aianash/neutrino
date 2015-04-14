@@ -4,7 +4,6 @@ import scala.concurrent._, duration._
 import scala.util.control.NonFatal
 
 import akka.actor.{Actor, ActorLogging, Props, ActorRef}
-import akka.actor.ExtendedActorSystem
 import akka.actor.{PoisonPill, Terminated}
 import akka.util.Timeout
 import akka.pattern.pipe

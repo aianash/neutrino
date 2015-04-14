@@ -68,6 +68,10 @@ class ShopPlanStores(val settings: ShopPlanSettings)
     addressO = country(row)     .map {c => addressO.getOrElse(PostalAddress()).copy(country =  c.some) }
     addressO = city(row)        .map {c => addressO.getOrElse(PostalAddress()).copy(city    =  c.some) }
 
+    var storeNameO = StoreName().some
+    storeNameO = fullname(row).flatMap(f => storeNameO.map(_.copy(full = f.some)))
+    storeNameO = handle(row)  .flatMap(h => storeNameO.map(_.copy(handle = h.some)))
+
     val destinationId =
       DestinationId(
         shopplanId = ShopPlanId(suid = suid(row), createdBy = UserId(uuid = uuid(row))),
@@ -77,7 +81,7 @@ class ShopPlanStores(val settings: ShopPlanSettings)
     ShopPlanStore(
       storeId        = StoreId(stuid = stuid(row)),
       destId         = destinationId,
-      name           = StoreName(full = fullname(row), handle = handle(row)).some,
+      name           = storeNameO,
       address        = addressO,
       itemTypes      = itemTypes(row).flatMap(name => ItemType.valueOf(name)).some,
       catalogueItems = catalogueItems(row).some

@@ -110,6 +110,14 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
   }
 
 
+  def cudBucket(userId: UserId, cud: CUDBucket) = {
+    val successF = Bucket ?= ModifyBucket(userId, cud)
+
+    awaitResult(successF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while modifying bucket"))
+    })
+  }
+
   ///////////////////
   // ShopPlan APIs //
   ///////////////////

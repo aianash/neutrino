@@ -72,8 +72,8 @@ struct StoreName {
 }
 
 struct CatalogueItemId {
-  1: i64 cuid;
-  2: StoreId storeId;
+  1: StoreId storeId;
+  2: i64 cuid;
 }
 
 enum SerializerType {
@@ -84,7 +84,7 @@ enum SerializerType {
 
 struct SerializerId {
   1: string sid;
-  2: SerializerType type;
+  2: SerializerType stype;
 }
 
 struct SerializedCatalogueItem {

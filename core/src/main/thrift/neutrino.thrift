@@ -40,6 +40,11 @@ struct CUDShopPlan {
   4: optional CUDShopPlanStore stores;
 }
 
+struct CUDBucket {
+  1: optional list<shopplan.BucketStore> adds;
+  // [TO REVISIT] no deletions at present.
+}
+
 service Neutrino {
 
   #/** User APIs */
@@ -51,6 +56,7 @@ service Neutrino {
 
   #/** Bucket APIs */
   list<shopplan.BucketStore> getBucketStores(1:common.UserId userId, 2:list<shopplan.BucketStoreField> fields) throws (1:NeutrinoException nex);
+  bool cudBucket(1:common.UserId userId, 2:CUDBucket cud) throws (1:NeutrinoException nex);
 
   #/** ShopPlan APIs */
   list<shopplan.ShopPlanStore> getShopPlanStores(1:shopplan.ShopPlanId shopplanId, 2:list<shopplan.ShopPlanStoreField> fields) throws (1:NeutrinoException nex);

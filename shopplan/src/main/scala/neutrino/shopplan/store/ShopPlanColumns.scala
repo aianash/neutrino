@@ -18,12 +18,12 @@ class CatalogueItemsJsonSetColumn[T <: CassandraTable[T, R], R](table: T)
     val cuid   = (json \ "cuid").as[Long]
     val stuid  = (json \ "stuid").as[Long]
     val sid    = (json \ "sid").as[String]
-    val `type` = SerializerType.valueOf((json \ "type").as[String]).getOrElse(SerializerType.Msgpck)
+    val stype  = SerializerType.valueOf((json \ "stype").as[String]).getOrElse(SerializerType.Msgpck)
     val stream = (json \ "stream").as[String]
 
     SerializedCatalogueItem(
       itemId       = CatalogueItemId(cuid = cuid, storeId = StoreId(stuid = stuid)),
-      serializerId = SerializerId(sid = sid, `type` = `type`),
+      serializerId = SerializerId(sid = sid, stype = stype),
       stream       = ByteBuffer.wrap(stream.getBytes())
     )
   }
@@ -37,7 +37,7 @@ class CatalogueItemsJsonSetColumn[T <: CassandraTable[T, R], R](table: T)
       "cuid"    -> item.itemId.cuid,
       "stuid"   -> item.itemId.storeId.stuid,
       "sid"     -> item.serializerId.sid,
-      "type"    -> item.serializerId.`type`.name,
+      "stype"   -> item.serializerId.stype.name,
       "stream"  -> stream
     )
 
