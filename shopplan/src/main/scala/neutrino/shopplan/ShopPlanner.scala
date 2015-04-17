@@ -18,6 +18,12 @@ class ShopPlanner(shopplanDatastore: ShopPlanDatastore) extends Actor {
 
   def receive = {
 
+    /**
+     * [TO DO]
+     * - Stores only contains ids, details to be fetched
+     *   and updated before adding to store
+     * - Addresses of stores, and destinations to be fetched
+     */
     case AddNewShopPlan(shopplanId, cud) =>
       // assign destination id to shopplan stores
 
@@ -36,10 +42,13 @@ class ShopPlanner(shopplanDatastore: ShopPlanDatastore) extends Actor {
 
 
 
-    // [IMP] Right now it assumes that cud's shopplan stores
-    // are already assigned to proper destinations
-    // and thus no re-allocations are required.
-    // But this will change soon
+    // [TO DO]
+    // - Right now it assumes that cud's shopplan stores
+    //   are already assigned to proper destinations
+    //   and thus no re-allocations are required.
+    // - Stores only contains ids, details to be fetched
+    //   and updated before adding to store
+    // - Addresses of stores, and destinations to be fetched
     case ModifyShopPlan(shopplanId, cud) =>
       shopplanDatastore.updateShopPlan(shopplanId, cud) pipeTo sender()
 

@@ -5,7 +5,7 @@ import com.goshoplane.neutrino.shopplan._
 import com.goshoplane.neutrino.service._
 
 
-import neutrino.core.protocols.Replyable
+import goshoplane.commons.core.protocols.Replyable
 
 sealed trait UserAccountMessages
 

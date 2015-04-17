@@ -6,6 +6,7 @@ import protocols._
 
 import com.goshoplane.neutrino.feed._
 
+import goshoplane.commons.core.protocols.Implicits._
 
 /**
  * [IMP] Complete implementation only after

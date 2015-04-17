@@ -6,7 +6,7 @@ import akka.actor.{Actor, Props, ActorLogging}
 
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap
 
-import neutrino.core.protocols.Replyable
+import goshoplane.commons.core.protocols._, Implicits._
 
 /**
  * A strip off of Twitter Snowflake (id generator)

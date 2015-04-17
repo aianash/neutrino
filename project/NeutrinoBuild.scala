@@ -53,8 +53,6 @@ object NeutrinoBuild extends Build with Libraries {
     settings = Project.defaultSettings ++
       sharedSettings
   ).settings(
-    libraryDependencies ++= Seq(
-    ) ++ Libs.akka
   ) aggregate (core, user, bucket, feed, shopplan, service)
 
 
@@ -77,6 +75,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.akka
       ++ Libs.scaldi
       ++ Libs.fastutil
+      ++ Libs.shopLaneCommons
   )
 
 

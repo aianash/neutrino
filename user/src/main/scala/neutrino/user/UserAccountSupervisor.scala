@@ -6,7 +6,8 @@ import akka.actor.{Props, Actor, ActorLogging}
 import akka.util.Timeout
 import akka.pattern.pipe
 
-import neutrino.core.protocols._
+import goshoplane.commons.core.protocols.Implicits._
+
 import neutrino.core.services._
 import neutrino.user.store._
 

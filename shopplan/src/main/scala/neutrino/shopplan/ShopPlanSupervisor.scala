@@ -10,7 +10,8 @@ import akka.pattern.pipe
 
 import com.goshoplane.neutrino.shopplan._
 
-import neutrino.core.protocols._
+import goshoplane.commons.core.protocols._, Implicits._
+
 import neutrino.core.services._
 import neutrino.shopplan.store._
 

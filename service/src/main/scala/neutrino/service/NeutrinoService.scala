@@ -5,6 +5,8 @@ import scala.util.control.NonFatal
 import scala.concurrent._, duration._
 import scala.collection.Set
 
+import java.net.InetSocketAddress
+
 import scalaz._, Scalaz._
 import scalaz.std.option._
 import scalaz.syntax.monad._
@@ -22,7 +24,8 @@ import com.goshoplane.neutrino.service._
 import com.goshoplane.neutrino.shopplan._
 import com.goshoplane.neutrino.feed._
 
-import neutrino.core.protocols._
+import goshoplane.commons.core.protocols.Implicits._
+
 import neutrino._
 import shopplan._, shopplan.protocols._
 import user._, user.protocols._
@@ -31,11 +34,14 @@ import feed._, feed.protocols._
 
 import com.twitter.util.{Future => TwitterFuture}
 import com.twitter.finagle.Thrift
+import com.twitter.finagle.thrift.ThriftServerFramedCodec
+import com.twitter.finagle.builder.ServerBuilder
 import com.twitter.bijection._, twitter_util.UtilBijections._
 import com.twitter.bijection.Conversion.asMethod
 
 import com.typesafe.config.{Config, ConfigFactory}
 
+import org.apache.thrift.protocol.TBinaryProtocol
 
 
 class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
@@ -223,6 +229,15 @@ object NeutrinoService {
 
   def start(implicit inj: Injector) = {
     val settings = NeutrinoSettings(inject [ActorSystem])
-    Thrift.serveIface(settings.NeutrinoEndpoint, inject [NeutrinoService])
+
+    val protocol = new TBinaryProtocol.Factory()
+    val service  = new Neutrino$FinagleService(inject [NeutrinoService], protocol)
+    val address  = new InetSocketAddress(settings.NeutrinoPort)
+
+    ServerBuilder()
+      .codec(ThriftServerFramedCodec())
+      .name(settings.ServiceName)
+      .bindTo(address)
+      .build(service)
   }
 }

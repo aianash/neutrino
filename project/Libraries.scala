@@ -47,11 +47,16 @@ trait Libraries {
     val phantom         = "1.5.0"
     val play            = "2.3.8"
     val researchpaperParser = "1.0"
+    val shopLaneCommons = "0.0.1"
   }
 
 
 
   object Libs {
+
+    val shopLaneCommons = Seq(
+      "com.goshoplane" %% "commons-core" % Version.shopLaneCommons)
+
 
     val playJson = Seq (
       "com.typesafe.play" %% "play-json" % Version.play)

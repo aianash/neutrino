@@ -6,7 +6,7 @@ import com.goshoplane.common._
 import com.goshoplane.neutrino.shopplan._
 import com.goshoplane.neutrino.service._
 
-import neutrino.core.protocols._
+import goshoplane.commons.core.protocols.Replyable
 
 sealed trait ShopPlanSupervisorMessages extends Serializable
 

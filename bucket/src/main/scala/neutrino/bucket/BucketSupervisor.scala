@@ -5,6 +5,8 @@ import akka.pattern.pipe
 
 import protocols._
 
+import goshoplane.commons.core.protocols.Implicits._
+
 import store.BucketDatastore
 
 class BucketSupervisor extends Actor with ActorLogging {
