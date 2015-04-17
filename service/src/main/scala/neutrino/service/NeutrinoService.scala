@@ -69,12 +69,23 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
   ///////////////
 
   def createUser(userInfo: UserInfo) = {
-    val userIdF = User ?= CreateUser(userInfo)
+    val userIdF =
+      userInfo.facebookInfo.map { facebookInfo =>
+        (User ?= IsExistingFBUser(facebookInfo.userId)).flatMap { userIdO =>
+          userIdO match {
+            case Some(userId) => (User ?= UpdateUser(userId, userInfo)).map(_ => userId)
+            case None         =>  User ?= CreateUser(userInfo)
+          }
+        }
+      } getOrElse {
+        User ?= CreateUser(userInfo)
+      }
 
     awaitResult(userIdF, 500 milliseconds, {
       case NonFatal(ex) => TFailure(NeutrinoException("Error while creating user"))
     })
   }
+
 
   def updateUser(userId: UserId, userInfo: UserInfo) = {
     val successF = User ?= UpdateUser(userId, userInfo)

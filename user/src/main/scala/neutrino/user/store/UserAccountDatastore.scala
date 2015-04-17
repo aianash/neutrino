@@ -20,20 +20,26 @@ sealed class UserAccountDatastore(val settings: UserSettings)
 
   object UserInfos extends UserInfos(settings)
   object UserFriends extends UserFriends(settings)
+  object UserByFBUID extends UserByFBUID(settings)
+
 
   def init()(implicit executor: ExecutionContext) {
     val creation =
       for {
         _ <- UserInfos.create.future()
         _ <- UserFriends.create.future()
+        _ <- UserByFBUID.create.future()
       } yield true
 
     Await.ready(creation, 2 seconds)
   }
 
 
+  def getUserId(fbUserId: UserId)(implicit executor: ExecutionContext) =
+    UserByFBUID.getUserIdBy(fbUserId).one().map(_.map(_._1))
+
   def getUserInfo(userId: UserId)(implicit executor: ExecutionContext) =
-    UserInfos.getInfoBy(userId).fetch()
+    UserInfos.getInfoBy(userId).one()
 
   def getUserFriends(userId: UserId)(implicit executor: ExecutionContext) =
     UserFriends.getFriendsBy(userId).fetch()

@@ -29,12 +29,17 @@ class UserAccountSupervisor extends Actor with ActorLogging {
 
   def receive = {
 
+    case IsExistingFBUser(fbUserId) =>
+      userAccDatastore.getUserId(fbUserId) pipeTo sender()
+
+
+
     case CreateUser(userInfo) =>
       implicit val timeout = Timeout(1 seconds)
 
       val userIdF =
         for {
-          uuid <- UUID ?= NextId("user")
+          uuid   <- UUID ?= NextId("user")
           userId <- Future.successful(UserId(uuid = uuid))
           _ <- userAccDatastore.createUser(userId, userInfo)
         } yield userId
