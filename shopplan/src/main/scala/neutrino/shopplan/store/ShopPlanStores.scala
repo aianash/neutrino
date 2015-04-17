@@ -30,7 +30,7 @@ class ShopPlanStores(val settings: ShopPlanSettings)
   // ids
   object uuid extends LongColumn(this) with PartitionKey[Long]
   object suid extends LongColumn(this) with PrimaryKey[Long] with ClusteringOrder[Long] with Ascending
-  object stuid extends LongColumn(this) with PrimaryKey[Long]
+  object stuid extends LongColumn(this) with PrimaryKey[Long] with ClusteringOrder[Long] with Ascending
 
   object dtuid extends LongColumn(this)
 
@@ -69,8 +69,8 @@ class ShopPlanStores(val settings: ShopPlanSettings)
     addressO = city(row)        .map {c => addressO.getOrElse(PostalAddress()).copy(city    =  c.some) }
 
     var storeNameO = StoreName().some
-    storeNameO = fullname(row).flatMap(f => storeNameO.map(_.copy(full = f.some)))
-    storeNameO = handle(row)  .flatMap(h => storeNameO.map(_.copy(handle = h.some)))
+    storeNameO = fullname(row).flatMap(f => storeNameO.map(_.copy(full = f.some))) orElse storeNameO
+    storeNameO = handle(row)  .flatMap(h => storeNameO.map(_.copy(handle = h.some))) orElse storeNameO
 
     val destinationId =
       DestinationId(

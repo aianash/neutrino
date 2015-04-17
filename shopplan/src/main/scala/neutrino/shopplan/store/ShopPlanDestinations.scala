@@ -28,7 +28,7 @@ class ShopPlanDestinations(val settings: ShopPlanSettings)
   // ids
   object uuid extends LongColumn(this) with PartitionKey[Long]
   object suid extends LongColumn(this) with PrimaryKey[Long] with ClusteringOrder[Long] with Ascending
-  object dtuid extends LongColumn(this) with PrimaryKey[Long]
+  object dtuid extends LongColumn(this) with PrimaryKey[Long] with ClusteringOrder[Long] with Ascending
 
   // address
   object lat extends OptionalDoubleColumn(this)

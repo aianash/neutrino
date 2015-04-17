@@ -18,11 +18,13 @@ class NeutrinoSettings(cfg: Config) extends Extension {
     config
   }
 
-  val ActorSystem   = config.getString("neutrino.actorSystem")
-  val ServiceId     = config.getLong("neutrino.service.id")
-  val DatacenterId  = config.getLong("neutrino.datacenter.id")
+  val ActorSystem  = config.getString("neutrino.actorSystem")
+  val ServiceId    = config.getLong("neutrino.service.id")
+  val ServiceName  = config.getString("neutrino.service.name")
+  val DatacenterId = config.getLong("neutrino.datacenter.id")
 
   val NeutrinoEndpoint = config.getString("neutrino.endpoint") + ":" + config.getInt("neutrino.port")
+  val NeutrinoPort     = config.getInt("neutrino.port")
 }
 
 

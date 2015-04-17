@@ -50,7 +50,7 @@ class ShopPlanMeta(val settings: ShopPlanSettings)
   object title extends OptionalStringColumn(this)
 
   // is invitation
-  object isInvitation extends BooleanColumn(this) with PrimaryKey[Long]
+  object isInvitation extends BooleanColumn(this)
 
   override def fromRow(row: Row) =
     ShopPlan(

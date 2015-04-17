@@ -26,6 +26,7 @@ sealed class BucketDatastore(val settings: BucketSettings)
     val creationF =
       for {
         _ <- BucketItems.create.future()
+        _ <- BucketStores.create.future()
       } yield true
 
     Await.ready(creationF, 2 seconds)

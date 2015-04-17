@@ -27,7 +27,7 @@ class BucketItems(val settings: BucketSettings)
 
   object uuid extends LongColumn(this) with PartitionKey[Long]
   object stuid extends LongColumn(this) with PrimaryKey[Long] with ClusteringOrder[Long] with Ascending
-  object cuid extends LongColumn(this) with PrimaryKey[Long]
+  object cuid extends LongColumn(this) with PrimaryKey[Long] with ClusteringOrder[Long] with Ascending
 
   // name
   object fullname extends OptionalStringColumn(this)
