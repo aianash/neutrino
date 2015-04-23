@@ -20,6 +20,8 @@ import com.websudos.phantom.Implicits.{context => _, _} // donot import executio
 sealed class BucketDatastore(val settings: BucketSettings)
   extends BucketConnector {
 
+  import BucketStoreField._
+
   object BucketItems extends BucketItems(settings)
   object BucketStores extends BucketStores(settings)
 
@@ -35,22 +37,22 @@ sealed class BucketDatastore(val settings: BucketSettings)
 
 
   def getBucketStores(userId: UserId, fields: Seq[BucketStoreField])(implicit executor: ExecutionContext) =
-    fields.find(_ != BucketStoreField.CatalogueItems)
-          .map { _ => BucketStores.getBucketStoresBy(userId, fields).fetch() }
-          .getOrElse {
-            for {
-              storeItems <- BucketItems.getBucketItemsBy(userId, fields).fetch()
-            } yield
-              storeItems.foldLeft(MutableMap.empty[StoreId, BucketStore])({ (map, storeItem) =>
-                val (store, item) = storeItem
-                val newStore =
-                  map.get(store.storeId)
-                     .map(store => store.copy(catalogueItems = store.catalogueItems.map(_ :+ item )))
-                     .getOrElse(store.copy(catalogueItems = Seq(item).some))
+    if(fields.forall(field => field != CatalogueItems && field != CatalogueItemIds))
+      BucketStores.getBucketStoresBy(userId, fields).fetch()
+    else {
+      for {
+        storeItems <- BucketItems.getBucketItemsBy(userId, fields).fetch()
+      } yield
+        storeItems.foldLeft(MutableMap.empty[StoreId, BucketStore])({ (map, storeItem) =>
+          val (store, item) = storeItem
+          val newStore =
+            map.get(store.storeId)
+               .map(store => store.copy(catalogueItems = store.catalogueItems.map(_ :+ item )))
+               .getOrElse(store.copy(catalogueItems = Seq(item).some))
 
-                map += (store.storeId -> newStore)
-              }).values.toSeq
-          }
+          map += (store.storeId -> newStore)
+        }).values.toSeq
+    }
 
 
   def insertBucketStores(userId: UserId, stores: Seq[BucketStore])(implicit executor: ExecutionContext) = {

@@ -1,5 +1,7 @@
 package neutrino.bucket.store
 
+import java.nio.ByteBuffer
+
 import com.goshoplane.common._
 import com.goshoplane.neutrino.shopplan._
 
@@ -81,7 +83,8 @@ class BucketItems(val settings: BucketSettings)
     val item = SerializedCatalogueItem(
       itemId       = CatalogueItemId(storeId = storeId, cuid = cuid(row)),
       serializerId = SerializerId(sid = sid(row), stype = serializerType),
-      stream       = stream(row)
+      stream       = stream.optional(row).getOrElse(ByteBuffer.wrap(Array.empty[Byte])) // [NOTE] if full detail was not
+                                                                                        // required then send empty buffer
     )
 
     (store, item)
@@ -142,14 +145,18 @@ class BucketItems(val settings: BucketSettings)
 
   ////////////////////////////// Private methods ///////////////////////////////
 
-  private def fieldToSelectors(fields: Seq[BucketStoreField]) = {
+  import BucketStoreField._
+
+  private def fieldToSelectors(fields: Seq[BucketStoreField]) =
     fields.flatMap {
-      case BucketStoreField.Name            => Seq("fullname", "handle")
-      case BucketStoreField.Address         => Seq("lat", "lng", "addressTitle", "addressShort", "addressFull", "pincode", "country", "city")
-      case BucketStoreField.ItemTypes       => Seq("itemTypes")
-      case _                                => Seq.empty[String]
-    } ++ Seq("uuid", "stuid", "cuid", "sid", "stype", "stream")
-  }
+      case Name             => Seq("fullname", "handle")
+      case Address          => Seq("lat", "lng", "addressTitle", "addressShort", "addressFull", "pincode", "country", "city")
+      case ItemTypes        => Seq("itemTypes")
+      case CatalogueItems   => Seq("stream")
+      case _                => Seq.empty[String]
+    } ++ Seq("uuid", "stuid", "storeType", "cuid", "sid", "stype") // always all ids, since if this table is accessed
+                                                                   // then definately for some catalogue information
+                                                                   // i.e. atleast ids
 
 }
 
