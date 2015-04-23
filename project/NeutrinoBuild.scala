@@ -75,7 +75,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.akka
       ++ Libs.scaldi
       ++ Libs.fastutil
-      ++ Libs.shopLaneCommons
+      ++ Libs.catalogueCommons
   )
 
 
@@ -111,6 +111,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.slf4j
       ++ Libs.logback
       ++ Libs.phantom
+      ++ Libs.bijection
   ).dependsOn(core)
 
 

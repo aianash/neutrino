@@ -14,6 +14,7 @@ import com.goshoplane.common._
 import com.goshoplane.neutrino.service._
 import com.goshoplane.neutrino.shopplan._
 
+import com.websudos.phantom.Implicits.{context => _, _} // donot import execution context
 
 
 sealed class BucketDatastore(val settings: BucketSettings)
@@ -44,24 +45,21 @@ sealed class BucketDatastore(val settings: BucketSettings)
                 val (store, item) = storeItem
                 val newStore =
                   map.get(store.storeId)
-                     .map(store => store.copy(catalogueItems = store.catalogueItems.map(_ + item)))
-                     .getOrElse(store.copy(catalogueItems = Set(item).some))
+                     .map(store => store.copy(catalogueItems = store.catalogueItems.map(_ :+ item )))
+                     .getOrElse(store.copy(catalogueItems = Seq(item).some))
 
                 map += (store.storeId -> newStore)
               }).values.toSeq
           }
 
 
-  def cudBucketStores(userId: UserId, cud: CUDBucket)(implicit executor: ExecutionContext) =
-    cud.adds.map { stores =>
-      val itemsF  = BucketItems .insertStoreItems(userId, stores).future().map(_ => true)
-      val storesF = BucketStores.insertStores(userId, stores)    .future().map(_ => true)
+  def insertBucketStores(userId: UserId, stores: Seq[BucketStore])(implicit executor: ExecutionContext) = {
+    val batch = BucketItems.insertStoreItems(userId, stores)
+    stores foreach {store =>
+      batch add BucketStores.insertStore(userId, store)
+    }
 
-      for {
-        _       <- itemsF
-        success <- storesF
-      } yield success
-
-    } getOrElse Future.successful(true)
+    batch.future().map(_ => true)
+  }
 
 }

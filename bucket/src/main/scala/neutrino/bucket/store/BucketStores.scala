@@ -19,6 +19,7 @@ import com.websudos.phantom.query.SelectQuery
 
 import com.datastax.driver.core.querybuilder.QueryBuilder
 
+import goshoplane.commons.core.factories._
 
 class BucketStores(val settings: BucketSettings)
   extends CassandraTable[BucketStores, BucketStore]
@@ -28,10 +29,13 @@ class BucketStores(val settings: BucketSettings)
 
   object uuid extends LongColumn(this) with PartitionKey[Long]
   object stuid extends LongColumn(this) with PrimaryKey[Long]
+  object storeType extends StringColumn(this)
 
   // name
   object fullname extends OptionalStringColumn(this)
   object handle extends OptionalStringColumn(this)
+
+  object itemTypes extends SetColumn[BucketStores, BucketStore, String](this)
 
   // address
   object lat extends OptionalDoubleColumn(this)
@@ -43,61 +47,49 @@ class BucketStores(val settings: BucketSettings)
   object country extends OptionalStringColumn(this)
   object city extends OptionalStringColumn(this)
 
-  // item types
-  object itemTypes extends SetColumn[BucketStores, BucketStore, String](this)
+  // avatar
+  object small extends OptionalStringColumn(this)
+  object medium extends OptionalStringColumn(this)
+  object large extends OptionalStringColumn(this)
+
+  object email extends OptionalStringColumn(this)
+
 
 
   override def fromRow(row: Row) = {
-    val gpsLoc = for(lat <- lat(row); lng <- lng(row)) yield GPSLocation(lat, lng)
-    var addressO = gpsLoc.map(v => PostalAddress(gpsLoc = v.some))
-    addressO = addressTitle(row).map {t => addressO.getOrElse(PostalAddress()).copy(title   =  t.some) }
-    addressO = addressShort(row).map {s => addressO.getOrElse(PostalAddress()).copy(short   =  s.some) }
-    addressO = addressFull(row) .map {f => addressO.getOrElse(PostalAddress()).copy(full    =  f.some) }
-    addressO = pincode(row)     .map {p => addressO.getOrElse(PostalAddress()).copy(pincode =  p.some) }
-    addressO = country(row)     .map {c => addressO.getOrElse(PostalAddress()).copy(country =  c.some) }
-    addressO = city(row)        .map {c => addressO.getOrElse(PostalAddress()).copy(city    =  c.some) }
+    val gpsLoc     = for(lat <- lat(row); lng <- lng(row)) yield GPSLocation(lat, lng)
+    val addressO   = Common.address(gpsLoc, addressTitle(row), addressShort(row), addressFull(row), pincode(row), country(row), city(row))
+    val nameO      = Common.storeName(fullname(row), handle(row))
+    val avatarO    = Common.storeAvatar(small(row), medium(row), large(row))
+    val itemTypesO = itemTypes(row).flatMap(ItemType.valueOf(_)).toSeq.some
 
-    val storeId = StoreId(stuid = stuid(row))
-
-    var storeNameO = StoreName().some
-    storeNameO = fullname(row).flatMap(f => storeNameO.map(_.copy(full = f.some)))
-    storeNameO = handle(row)  .flatMap(h => storeNameO.map(_.copy(handle = h.some)))
-
-
-    val store = BucketStore(
-      storeId   = storeId,
-      name      = storeNameO,
-      address   = addressO,
-      itemTypes = itemTypes(row).flatMap(name => ItemType.valueOf(name)).some
+    BucketStore(
+      storeId   = StoreId(stuid = stuid(row)),
+      storeType = StoreType.valueOf(storeType(row)).getOrElse(StoreType.Unknown),
+      info      = Common.storeInfo(nameO, itemTypesO, addressO, avatarO, email(row), None).getOrElse(StoreInfo()) // [NOTE] intentionally left phone number
     )
-
-    store
   }
 
-  def insertStores(userId: UserId, stores: Seq[BucketStore]) = {
-    val batch = BatchStatement()
-
-    stores.foreach { store =>
-      val insertQ =
-        insert
-          .value(_.uuid,            userId.uuid)
-          .value(_.stuid,           store.storeId.stuid)
-          .value(_.fullname,        store.name.flatMap(_.full))
-          .value(_.handle,          store.name.flatMap(_.handle))
-          .value(_.lat,             store.address.flatMap(_.gpsLoc.map(_.lat)))
-          .value(_.lng,             store.address.flatMap(_.gpsLoc.map(_.lng)))
-          .value(_.addressTitle,    store.address.flatMap(_.title))
-          .value(_.addressShort,    store.address.flatMap(_.short))
-          .value(_.pincode,         store.address.flatMap(_.pincode))
-          .value(_.country,         store.address.flatMap(_.country))
-          .value(_.city,            store.address.flatMap(_.city))
-          .value(_.itemTypes,       store.itemTypes.map(_.map(_.name).toSet).getOrElse(Set.empty[String])) // [IMP] Check it camel case only
-
-      batch add insertQ
-    }
-
-    batch
-  }
+  def insertStore(userId: UserId, store: BucketStore) =
+    insert
+      .value(_.uuid,          userId.uuid)
+      .value(_.stuid,         store.storeId.stuid)
+      .value(_.storeType,     store.storeType.name)
+      .value(_.fullname,      store.info.name.flatMap(_.full))
+      .value(_.handle,        store.info.name.flatMap(_.handle))
+      .value(_.itemTypes,     store.info.itemTypes.map(_.map(_.name).toSet).getOrElse(Set.empty[String]))
+      .value(_.lat,           store.info.address.flatMap(_.gpsLoc.map(_.lat)))
+      .value(_.lng,           store.info.address.flatMap(_.gpsLoc.map(_.lng)))
+      .value(_.addressTitle,  store.info.address.flatMap(_.title))
+      .value(_.addressShort,  store.info.address.flatMap(_.short))
+      .value(_.addressFull,   store.info.address.flatMap(_.full))
+      .value(_.pincode,       store.info.address.flatMap(_.pincode))
+      .value(_.country,       store.info.address.flatMap(_.country))
+      .value(_.city,          store.info.address.flatMap(_.city))
+      .value(_.small,         store.info.avatar.flatMap(_.small))
+      .value(_.medium,        store.info.avatar.flatMap(_.medium))
+      .value(_.large,         store.info.avatar.flatMap(_.large))
+      .value(_.email,         store.info.email)
 
 
   def getBucketStoresBy(userId: UserId, fields: Seq[BucketStoreField]) = {
@@ -116,7 +108,7 @@ class BucketStores(val settings: BucketSettings)
   private def fieldToSelectors(fields: Seq[BucketStoreField]) = {
     fields.flatMap {
       case BucketStoreField.Name            => Seq("fullname", "handle")
-      case BucketStoreField.Address         => Seq("lat", "lng", "addressTitle", "addressShort", "pincode", "country", "city")
+      case BucketStoreField.Address         => Seq("lat", "lng", "addressTitle", "addressShort", "addressFull", "pincode", "country", "city")
       case BucketStoreField.ItemTypes       => Seq("itemTypes")
       case _                                => Seq.empty[String]
     } ++ Seq("uuid", "stuid")
