@@ -55,6 +55,26 @@ sealed class BucketDatastore(val settings: BucketSettings)
     }
 
 
+
+  def getGivenBucketStores(userId: UserId, storeIds: Seq[StoreId], fields: Seq[BucketStoreField])(implicit executor: ExecutionContext) =
+    if(fields.forall(field => field != CatalogueItems && field != CatalogueItemIds))
+      BucketStores.getBucketStoresBy(userId, storeIds, fields).fetch()
+    else {
+      for {
+        storeItems <- BucketItems.getBucketItemsBy(userId, storeIds, fields).fetch()
+      } yield
+        storeItems.foldLeft(MutableMap.empty[StoreId, BucketStore])({ (map, storeItem) =>
+          val (store, item) = storeItem
+          val newStore =
+            map.get(store.storeId)
+               .map(store => store.copy(catalogueItems = store.catalogueItems.map(_ :+ item )))
+               .getOrElse(store.copy(catalogueItems = Seq(item).some))
+
+          map += (store.storeId -> newStore)
+        }).values.toSeq
+    }
+
+
   def insertBucketStores(userId: UserId, stores: Seq[BucketStore])(implicit executor: ExecutionContext) = {
     val batch = BucketItems.insertStoreItems(userId, stores)
     stores foreach {store =>

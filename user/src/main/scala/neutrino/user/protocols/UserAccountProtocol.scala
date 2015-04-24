@@ -14,3 +14,4 @@ case class CreateUser(userInfo: UserInfo) extends UserAccountMessages with Reply
 case class UpdateUser(userId: UserId, userInfo: UserInfo) extends UserAccountMessages with Replyable[Boolean]
 case class GetUserDetail(userId: UserId) extends UserAccountMessages with Replyable[UserInfo]
 case class GetFriendsForInvite(userId: UserId, filter: FriendListFilter) extends UserAccountMessages with Replyable[Seq[Friend]]
+case class GetFriendsDetails(userId: UserId, friendIds: Seq[UserId]) extends UserAccountMessages with Replyable[Seq[Friend]]

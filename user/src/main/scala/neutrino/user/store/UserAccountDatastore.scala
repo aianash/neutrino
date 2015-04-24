@@ -44,6 +44,9 @@ sealed class UserAccountDatastore(val settings: UserSettings)
   def getUserFriends(userId: UserId)(implicit executor: ExecutionContext) =
     UserFriends.getFriendsBy(userId).fetch()
 
+  def getUserFriends(userId: UserId, friendIds: Seq[UserId])(implicit executor: ExecutionContext) =
+    UserFriends.getFriendsBy(userId, friendIds).fetch()
+
   def createUser(userId: UserId, info: UserInfo)(implicit executor: ExecutionContext) =
     UserInfos.insertUserInfo(userId, info).future()
 

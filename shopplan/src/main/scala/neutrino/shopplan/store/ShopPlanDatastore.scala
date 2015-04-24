@@ -22,21 +22,23 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
   object ShopPlanMeta extends ShopPlanMeta(settings)
   object ShopPlanMetaByInvitation extends ShopPlanMetaByInvitation(settings)
   object ShopPlanStores extends ShopPlanStores(settings)
+  object ShopPlanItems extends ShopPlanItems(settings)
   object ShopPlanDestinations extends ShopPlanDestinations(settings)
   object ShopPlanInvites extends ShopPlanInvites(settings)
 
 
   def init()(implicit executor: ExecutionContext) {
-    val creation =
+    val creationF =
       for {
         _ <- ShopPlanMeta.create.future()
         _ <- ShopPlanMetaByInvitation.create.future()
         _ <- ShopPlanStores.create.future()
+        _ <- ShopPlanItems.create.future()
         _ <- ShopPlanDestinations.create.future()
         _ <- ShopPlanInvites.create.future()
       } yield true
 
-    Await.ready(creation, 2 seconds)
+    Await.ready(creationF, 2 seconds)
   }
 
 
@@ -162,7 +164,7 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
 
 
   /**
-   * Add a new shopplan to database
+   * Add a new shopplan to storage
    */
   def addNewShopPlan(shopplan: ShopPlan)(implicit executor: ExecutionContext) = {
     val userId = shopplan.shopplanId.createdBy
@@ -190,32 +192,33 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
 
 
 
-  def updateShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan)(implicit executor: ExecutionContext) = {
-    val batch = BatchStatement()
+  // [TO DO]
+  // def updateShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan)(implicit executor: ExecutionContext) = {
+  //   val batch = BatchStatement()
 
-    cud.meta.foreach(_.title.foreach { title =>
-      batch add ShopPlanMeta            .updateTitleBy(shopplanId, title)
-      batch add ShopPlanMetaByInvitation.updateTitleBy(shopplanId, title)
-    })
+  //   cud.meta.foreach(_.title.foreach { title =>
+  //     batch add ShopPlanMeta            .updateTitleBy(shopplanId, title)
+  //     batch add ShopPlanMetaByInvitation.updateTitleBy(shopplanId, title)
+  //   })
 
-    cud.destinations.foreach { destinations =>
-      destinations.adds     .toSeq.flatten.foreach { batch add ShopPlanDestinations.insertDestination(_) }
-      destinations.updates  .toSeq.flatten.foreach { batch add ShopPlanDestinations.updateDestinationBy(_) }
-      destinations.removals .toSeq.flatten.foreach { batch add ShopPlanDestinations.deleteDestinationsBy(_) }
-    }
+  //   cud.destinations.foreach { destinations =>
+  //     destinations.adds     .toSeq.flatten.foreach { batch add ShopPlanDestinations.insertDestination(_) }
+  //     destinations.updates  .toSeq.flatten.foreach { batch add ShopPlanDestinations.updateDestinationBy(_) }
+  //     destinations.removals .toSeq.flatten.foreach { batch add ShopPlanDestinations.deleteDestinationsBy(_) }
+  //   }
 
-    cud.stores.foreach { stores =>
-      stores.adds    .toSeq.flatten.foreach { batch add ShopPlanStores.insertStore(_) }
-      stores.removals.toSeq.flatten.foreach { batch add ShopPlanStores.deleteStoreBy(shopplanId, _) }
-    }
+  //   cud.stores.foreach { stores =>
+  //     stores.adds    .toSeq.flatten.foreach { batch add ShopPlanStores.insertStore(_) }
+  //     stores.removals.toSeq.flatten.foreach { batch add ShopPlanStores.deleteStoreBy(shopplanId, _) }
+  //   }
 
-    cud.invites.foreach { invites =>
-      invites.adds    .toSeq.flatten.foreach { batch add ShopPlanInvites.insertInvite(_) }
-      invites.removals.toSeq.flatten.foreach { batch add ShopPlanInvites.deleteInviteBy(shopplanId, _) }
-    }
+  //   cud.invites.foreach { invites =>
+  //     invites.adds    .toSeq.flatten.foreach { batch add ShopPlanInvites.insertInvite(_) }
+  //     invites.removals.toSeq.flatten.foreach { batch add ShopPlanInvites.deleteInviteBy(shopplanId, _) }
+  //   }
 
-    batch.future()
-  }
+  //   batch.future()
+  // }
 
 
 

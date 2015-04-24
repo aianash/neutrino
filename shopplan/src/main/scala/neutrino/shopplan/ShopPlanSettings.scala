@@ -19,6 +19,7 @@ class ShopPlanSettings(cfg: Config) extends Extension {
   val CassandraKeyspace = config.getString("neutrino.shopplan.cassandraKeyspace")
   val ServiceId         = config.getLong("neutrino.service.id")
   val DatacenterId      = config.getLong("neutrino.datacenter.id")
+  val GeoApiKey         = config.getString("neutrino.geo.api-key")
 }
 
 

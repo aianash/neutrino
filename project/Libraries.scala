@@ -11,7 +11,7 @@ trait Libraries {
     val scala           = "2.10.4"
     val lucene          = "4.8.0"
     val akka            = "2.3.6"
-    val scalaz          = "7.0.6"
+    val scalaz          = "7.1.1"
     val graphstream     = "1.2"
     val fastutil        = "6.5.15"
     val argonaut        = "6.0.4"
@@ -46,6 +46,7 @@ trait Libraries {
     val cassandraCore   = "2.1.4"
     val phantom         = "1.5.0"
     val play            = "2.3.8"
+    val googleMaps      = "0.1.6"
     val researchpaperParser = "1.0"
     val catalogueCommons    = "0.0.1"
   }
@@ -53,6 +54,10 @@ trait Libraries {
 
 
   object Libs {
+
+    val googleMaps = Seq(
+      "com.google.maps" % "google-maps-services" % Version.googleMaps)
+
 
     val catalogueCommons = Seq(
       "com.goshoplane" %% "commons-catalogue" % Version.catalogueCommons)

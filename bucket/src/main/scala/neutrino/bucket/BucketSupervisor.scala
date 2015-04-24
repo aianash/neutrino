@@ -52,6 +52,10 @@ class BucketSupervisor extends Actor with ActorLogging {
       bucketDatastore.getBucketStores(userId, fields) pipeTo sender()
 
 
+    case GetGivenBucketStores(userId, storeIds, fields) =>
+      bucketDatastore.getGivenBucketStores(userId, storeIds, fields) pipeTo sender()
+
+
     case ModifyBucket(userId, cud) =>
       import StoreInfoField._
 

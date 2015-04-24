@@ -61,6 +61,10 @@ class UserAccountSupervisor extends Actor with ActorLogging {
     case GetFriendsForInvite(userId, filter) =>
       userAccDatastore.getUserFriends(userId) pipeTo sender()
 
+
+    case GetFriendsDetails(userId, friendIds) =>
+      userAccDatastore.getUserFriends(userId, friendIds) pipeTo sender()
+
   }
 
 }

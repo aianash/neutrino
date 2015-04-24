@@ -19,7 +19,7 @@ import neutrino.user.UserSettings
 class UserByFBUID(val settings: UserSettings)
   extends CassandraTable[UserByFBUID, (UserId, FacebookInfo)] with UserConnector {
 
-  override def tableName = "user_by_fbuid"
+  override def tableName = "users_by_fbuid"
 
   // ids
   object fbuid extends LongColumn(this) with PartitionKey[Long]

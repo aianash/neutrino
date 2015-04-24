@@ -12,16 +12,19 @@ import com.goshoplane.neutrino.shopplan._
 
 import goshoplane.commons.core.protocols._, Implicits._
 
+import neutrino.core._
 import neutrino.core.services._
 import neutrino.shopplan.store._
 
-import scalaz._
+import scalaz._, Scalaz._
 
 /**
  * Supervises lifecycle of ShopPlanner instances and other adjacent services like
- * - UUID generator
  */
-class ShopPlanSupervisor extends Actor with ActorLogging {
+class ShopPlanSupervisor(
+  _Bucket: ActorRef @@ BucketActorRef,
+  _User  : ActorRef @@ UserActorRef) extends Actor with ActorLogging {
+
 
   private val settings = ShopPlanSettings(context.system)
 
@@ -29,8 +32,18 @@ class ShopPlanSupervisor extends Actor with ActorLogging {
   import context.dispatcher
   import settings._
 
-  private val UUID = context.actorOf(UUIDGenerator.props(ServiceId, DatacenterId))
+  private val UUID   = context.actorOf(UUIDGenerator.props(ServiceId, DatacenterId))
+  private val Bucket = Tag.unwrap(_Bucket)
+  private val User   = Tag.unwrap(_User)
+
+
+  // Watching these actors for any termination.
+  // This supervisor is heavily dependent
+  // on these actors for most of its operations.
   context watch UUID
+  context watch Bucket
+  context watch User
+
 
   // [TO IMPROVE] In order to throttle read and write requests for ShopPlan related data
   // we could create separate endpoints for write(persister) and read(retriever)
@@ -101,11 +114,11 @@ class ShopPlanSupervisor extends Actor with ActorLogging {
   }
 
 
-  private def getOrCreateShopPlanner(id: ShopPlanId) = {
-    val name = ShopPlanner.actorNameFor(id)
+  private def getOrCreateShopPlanner(shopplanId: ShopPlanId) = {
+    val name = ShopPlanner.actorNameFor(shopplanId)
 
     context.child(name) getOrElse {
-      val planner = context.actorOf(ShopPlanner.props(shopplanDatastore), name)
+      val planner = context.actorOf(ShopPlanner.props(shopplanId, shopplanDatastore, _User, _Bucket), name)
       context watch planner
       planner
     }
@@ -116,5 +129,7 @@ class ShopPlanSupervisor extends Actor with ActorLogging {
 
 
 object ShopPlanSupervisor {
-  def props = Props(new ShopPlanSupervisor)
+  def props(bucket: ActorRef @@ BucketActorRef,
+            user  : ActorRef @@ UserActorRef) =
+    Props(classOf[ShopPlanSupervisor], bucket, user)
 }

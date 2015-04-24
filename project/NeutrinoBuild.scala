@@ -149,7 +149,8 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.logback
       ++ Libs.phantom
       ++ Libs.playJson
-  ).dependsOn(core)
+      ++ Libs.googleMaps
+  ).dependsOn(core, user, bucket)
 
 
 

@@ -142,6 +142,16 @@ class BucketItems(val settings: BucketSettings)
   }
 
 
+  def getBucketItemsBy(userId: UserId, storeIds: Seq[StoreId], fields: Seq[BucketStoreField]) = {
+    val selectors = fieldToSelectors(fields)
+
+    val select =
+      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow)
+
+    select.where(_.uuid eqs userId.uuid)
+          .and(  _.stuid in storeIds.map(_.stuid).toList)
+  }
+
 
   ////////////////////////////// Private methods ///////////////////////////////
 

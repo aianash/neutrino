@@ -26,7 +26,7 @@ import com.goshoplane.neutrino.feed._
 
 import goshoplane.commons.core.protocols.Implicits._
 
-import neutrino._
+import neutrino._, core._
 import shopplan._, shopplan.protocols._
 import user._, user.protocols._
 import bucket._, bucket.protocols._
@@ -56,10 +56,11 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
   val settings = NeutrinoSettings(system)
 
-  val ShopPlan = system.actorOf(ShopPlanSupervisor.props,     "shopplan")
   val User     = system.actorOf(UserAccountSupervisor.props,  "user")
   val Bucket   = system.actorOf(BucketSupervisor.props,       "bucket")
   val Feed     = system.actorOf(FeedSupervisor.props,         "feed")
+
+  val ShopPlan = system.actorOf(ShopPlanSupervisor.props(BucketActorRef(Bucket), UserActorRef(User)), "shopplan")
 
   implicit val defaultTimeout = Timeout(1 seconds)
 

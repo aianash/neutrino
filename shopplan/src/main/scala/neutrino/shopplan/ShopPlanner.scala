@@ -1,65 +1,317 @@
 package neutrino.shopplan
 
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
+import scala.concurrent.duration._
+
+import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorRef, Props}
 import akka.pattern.pipe
+import akka.util.Timeout
 
-import scalaz._
+import scalaz._, Scalaz._
 
 import com.goshoplane.neutrino.shopplan._
+import com.goshoplane.neutrino.service._
 import com.goshoplane.common._
+
+import goshoplane.commons.core.protocols.Implicits._
 
 import store.ShopPlanDatastore
 
-class ShopPlanner(shopplanDatastore: ShopPlanDatastore) extends Actor {
+import neutrino.core._
+import neutrino.user.protocols._
+import neutrino.bucket.protocols._
+
+import com.google.maps.{GeocodingApi, GeoApiContext, PendingResult}
+import com.google.maps.model.{LatLng, AddressComponentType, GeocodingResult}
+
+
+class ShopPlanner(
+  shopplanId: ShopPlanId,
+  shopplanDatastore: ShopPlanDatastore,
+  _User  : ActorRef @@ UserActorRef,
+  _Bucket: ActorRef @@ UserActorRef) extends Actor {
+
+  private val settings = ShopPlanSettings(context.system)
+
   import neutrino.shopplan.protocols._
   import context.dispatcher
+  import settings._
+
+
+  private val Bucket = Tag.unwrap(_Bucket)
+  private val User   = Tag.unwrap(_User)
+
+  // Watching these actors for any termination.
+  // This supervisor is heavily dependent
+  // on these actors for most of its operations.
+  context watch Bucket
+  context watch User
+
+
+  private val geoApiContext = new GeoApiContext()
+                                .setApiKey(GeoApiKey)
+                                .setQueryRateLimit(500, 0)
+                                .setConnectTimeout(1, TimeUnit.SECONDS)
+                                .setReadTimeout(1, TimeUnit.SECONDS)
+                                .setWriteTimeout(1, TimeUnit.SECONDS);
+
+
 
   def receive = {
+    case AddNewShopPlan(`shopplanId`, cud) => addNewShopPlan(shopplanId, cud) pipeTo sender()
+    case ModifyShopPlan(`shopplanId`, cud) => sender() ! false // [TO DO]
 
-    /**
-     * [TO DO]
-     * - Stores only contains ids, details to be fetched
-     *   and updated before adding to store
-     * - Addresses of stores, and destinations to be fetched
-     */
-    case AddNewShopPlan(shopplanId, cud) =>
-      // assign destination id to shopplan stores
-
-      var shopPlan = ShopPlan(
-        shopplanId    = shopplanId,
-        title         = cud.meta.flatMap(_.title),
-        isInvitation  = false
-      )
-
-
-      shopPlan = cud.invites     .map(c => shopPlan.copy(invites = c.adds))     .getOrElse(shopPlan)
-      shopPlan = cud.destinations.map(c => shopPlan.copy(destinations = c.adds)).getOrElse(shopPlan)
-      shopPlan = cud.stores      .map(c => shopPlan.copy(stores = c.adds))      .getOrElse(shopPlan)
-
-      shopplanDatastore.addNewShopPlan(shopPlan) pipeTo sender()
+    // Handling of termination messages
+    // for dependent actors
+  }
 
 
 
-    // [TO DO]
-    // - Right now it assumes that cud's shopplan stores
-    //   are already assigned to proper destinations
-    //   and thus no re-allocations are required.
-    // - Stores only contains ids, details to be fetched
-    //   and updated before adding to store
-    // - Addresses of stores, and destinations to be fetched
-    case ModifyShopPlan(shopplanId, cud) =>
-      shopplanDatastore.updateShopPlan(shopplanId, cud) pipeTo sender()
+
+  ////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////// Private methods ////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////
+
+
+  /**
+   * Add a new shopplan in storage for
+   * a given shopplan id
+   */
+  private def addNewShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan): Future[Boolean] = {
+
+    // 1. From the invites list (which is assumed to contain only userId of friend)
+    //    create shop plan's Invite list with full user detail
+    val invitesF =
+      cud.invites.flatMap(_.adds)
+         .map(makeInvites(shopplanId, _))
+         .getOrElse(Future.successful(Seq.empty[Invite]))
+
+
+    // filter out destinations which in case
+    // dont have gps location
+    val destinations =
+      cud.destinations
+         .flatMap(_.adds).getOrElse(Seq.empty[Destination])
+         .filter(!_.address.gpsLoc.isEmpty)
+
+
+    // 2. Resolve destinations' gps location to full address
+    val destinationsF = resolveDestinations(destinations)
+
+
+    // 3. Convert itemIds to ShopPlanStores with items
+    //    with nearest destinations assigned
+    val storesF =
+      cud.items.flatMap(_.adds)
+         .map(makeShopPlanStores(shopplanId.createdBy, _, destinations))
+         .getOrElse(Future.successful(Seq.empty[ShopPlanStore]))
+
+
+    // 4. Create ShopPlan instance
+    val shopplanF =
+      for {
+        invites      <- invitesF
+        stores       <- storesF
+        destinations <- destinationsF
+      } yield ShopPlan(
+                shopplanId    = shopplanId,
+                title         = cud.meta.flatMap(_.title),
+                stores        = stores.some,
+                destinations  = destinations.some,
+                invites       = invites.some,
+                isInvitation  = false
+              )
+
+    // 5. Persist ShopPlan to data store
+    //    and return successF (Boolean)
+    shopplanF.flatMap(shopplanDatastore.addNewShopPlan(_)).map(_ => true) // [TO FIX] read result set from
+                                                                          // cassandra and then mark it true
+  }
+
+
+
+  def resolveDestinations(destinations: Seq[Destination]) = {
+    Future.sequence(destinations.map({ destination =>
+      resolveLatLng(destination.address)
+        .map { address => destination.copy(address = address) }
+    }))
+  }
+
+
+
+  /**
+   * Create Invites from friend ids for user
+   */
+  def makeInvites(shopplanId: ShopPlanId, friendIds: Seq[UserId]) = {
+    implicit val timeout = Timeout(1 seconds) // used for all ask request
+
+    val friendsF = User ?= GetFriendsDetails(shopplanId.createdBy, friendIds)
+
+    friendsF.map { friends =>
+      friends.map { friend =>
+        Invite(
+          friendId   = friend.id,
+          shopplanId = shopplanId,
+          name       = friend.name,
+          avatar     = friend.avatar)
+      }
+    }
+  }
+
+
+
+  /**
+   * Create ShopPlanStores from itemIds using Bucket Stores for user
+   * Also shop plan stores are assigned destination based on nearness
+   */
+  def makeShopPlanStores(userId: UserId, itemIds: Seq[CatalogueItemId], destinations: Seq[Destination]) = {
+    import BucketStoreField._
+
+    implicit val timeout = Timeout(1 seconds) // used for all ask request
+
+    // partial function for calculating nearest destinations
+    val nearestDestination = chooseNearestDestination(destinations, _: GPSLocation)
+
+    val storeIds = itemIds.map(_.storeId).distinct
+    val cuids    = itemIds.map(_.cuid).toSet // toSet for efficient lookup
+    val fields   = Seq(Name, Address, ItemTypes, CatalogueItems)
+
+    // Get details of stores and its items
+    //
+    // [NOTE] It is assumed that all stores are from user's Bucket
+    // therefore gettings stores complete information using Bucket
+    // instead of Cassie
+    val bStoresF = Bucket ?= GetGivenBucketStores(userId, storeIds, fields)
+
+    bStoresF map { bStores => // Convert Bucket store to ShopPlanStore with assigned
+                              // nearest destination
+      bStores.flatMap { bStore =>
+        bStore.info.address.flatMap(_.gpsLoc).map { gpsLoc => // continue only if gpsLoc is present
+
+          // Remove items from bucket stores that are not
+          // present in given items list
+          val itemsO =
+            bStore.catalogueItems.map(_.filter(ser => cuids.contains(ser.itemId.cuid)))
+
+          ShopPlanStore(
+            storeId        = bStore.storeId,
+            destId         = nearestDestination(gpsLoc), // assign nearest destination
+            storeType      = bStore.storeType,
+            info           = bStore.info,
+            catalogueItems = itemsO
+          )
+        }
+      }
+    }
 
   }
+
+
+
+  /**
+   * Resolve the Lat Lng of address with complete address information
+   * using google geo coding api
+   */
+  private def resolveLatLng(address: PostalAddress) =
+    address.gpsLoc.map { gpsLoc =>   // make sure address has gpsLoc
+
+      val request = GeocodingApi.newRequest(geoApiContext) // request
+        .latlng(new LatLng(gpsLoc.lat, gpsLoc.lng))
+
+      val p = Promise[PostalAddress]()
+
+      request.setCallback(new PendingResult.Callback[Array[GeocodingResult]]() {
+
+        override def onResult(result: Array[GeocodingResult]) {
+          // Fill the details into the oiginal address
+          val newAddress =
+            result(0).addressComponents.foldLeft(address) { (newAddress, component) =>
+              if(component.types.exists(_ == AddressComponentType.COUNTRY))
+                newAddress.copy(country = component.longName.some)
+              else if(component.types.exists(_ == AddressComponentType.ADMINISTRATIVE_AREA_LEVEL_2))
+                newAddress.copy(short = component.longName.some)
+              else if(component.types.exists(_ == AddressComponentType.ADMINISTRATIVE_AREA_LEVEL_1))
+                newAddress.copy(city = component.longName.some)
+              else if(component.types.exists(_ == AddressComponentType.POSTAL_CODE))
+                newAddress.copy(pincode = component.longName.some)
+              else if(component.types.exists(_ == AddressComponentType.LOCALITY))
+                newAddress.copy(title = component.longName.some)
+              else newAddress
+            }
+
+          p success newAddress.copy(full = result(0).formattedAddress.some)
+        }
+
+        override def onFailure(e: Throwable) {
+          p failure e
+        }
+
+      })
+
+      p.future
+
+    }.getOrElse(Future.successful(address)) // else pass back the original
+
+
+
+
+
+  private val R = 6371000 // radius of earth in metres
+
+  // haversine’ formula to calculate the great-circle distance between two points
+  // – that is, the shortest distance over the earth’s surface
+  // – giving an ‘as-the-crow-flies’ distance between the points
+  private def haversine(from: GPSLocation, to: GPSLocation) = {
+    import scala.math._
+
+    val latFr = toRadians(from.lat)
+    val latTo = toRadians(to.lat)
+
+    val deltaLat = toRadians(from.lat - to.lat)
+    val deltaLng = toRadians(from.lng - to.lng)
+
+    val a = pow(sin(deltaLat / 2), 2) +
+            cos(latFr) * cos(latTo) *
+            pow(sin(deltaLng / 2), 2)
+
+    val c = 2 * atan2(sqrt(a), sqrt(1.0 - a))
+
+    R * c
+  }
+
+
+
+  // Returns the neartest destination for the target gps location
+  private def chooseNearestDestination(destinations: Seq[Destination], target: GPSLocation) =
+    destinations.tail.foldLeft((0.0, destinations.head))({
+
+      case ((minD, currDest), destination) =>
+        val newMinD =
+          destination.address.gpsLoc
+            .map(from => haversine(from, target))
+            .getOrElse(minD)
+
+        if(newMinD < minD) (newMinD, destination)
+        else (minD, currDest)
+
+    })._2.destId
+
 
 }
 
 
+
+
+// Companion object for ShopPlanner
 object ShopPlanner {
 
   def actorNameFor(id: ShopPlanId) = id.createdBy.uuid + "-" + id.suid
 
-  def props(shopplanDatastore: ShopPlanDatastore) = Props(classOf[ShopPlanner], shopplanDatastore)
+  def props(shopplanId: ShopPlanId,
+            shopplanDatastore: ShopPlanDatastore,
+            user  : ActorRef @@ UserActorRef,
+            bucket: ActorRef @@ BucketActorRef) =
+    Props(classOf[ShopPlanner], shopplanId, shopplanDatastore, user, bucket)
 }

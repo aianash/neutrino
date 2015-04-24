@@ -1,7 +1,5 @@
 package neutrino.shopplan.protocols
 
-import scala.collection.Set
-
 import com.goshoplane.common._
 import com.goshoplane.neutrino.shopplan._
 import com.goshoplane.neutrino.service._

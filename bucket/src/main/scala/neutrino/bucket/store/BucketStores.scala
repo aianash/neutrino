@@ -1,9 +1,5 @@
 package neutrino.bucket.store
 
-import com.goshoplane.common._
-import com.goshoplane.neutrino.shopplan._
-
-
 import scalaz._, Scalaz._
 import scalaz.std.option._
 import scalaz.syntax.monad._
@@ -13,9 +9,9 @@ import com.goshoplane.neutrino.service._
 import com.goshoplane.neutrino.shopplan._
 
 import com.websudos.phantom.Implicits.{context => _, _} // donot import execution context
+import com.websudos.phantom.query.SelectQuery
 
 import neutrino.bucket.BucketSettings
-import com.websudos.phantom.query.SelectQuery
 
 import com.datastax.driver.core.querybuilder.QueryBuilder
 
@@ -102,6 +98,15 @@ class BucketStores(val settings: BucketSettings)
   }
 
 
+  def getBucketStoresBy(userId: UserId, storeIds: Seq[StoreId], fields: Seq[BucketStoreField]) = {
+    val selectors = fieldToSelectors(fields)
+
+    val select =
+      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow)
+
+    select.where(_.uuid eqs userId.uuid)
+          .and(  _.stuid in storeIds.map(_.stuid).toList)
+  }
 
   ////////////////////////////// Private methods ///////////////////////////////
 
