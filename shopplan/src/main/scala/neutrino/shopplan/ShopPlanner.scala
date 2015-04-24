@@ -31,7 +31,7 @@ class ShopPlanner(
   shopplanId: ShopPlanId,
   shopplanDatastore: ShopPlanDatastore,
   _User  : ActorRef @@ UserActorRef,
-  _Bucket: ActorRef @@ UserActorRef) extends Actor {
+  _Bucket: ActorRef @@ BucketActorRef) extends Actor {
 
   private val settings = ShopPlanSettings(context.system)
 
