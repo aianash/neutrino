@@ -53,7 +53,7 @@ object NeutrinoBuild extends Build with Libraries {
     settings = Project.defaultSettings ++
       sharedSettings
   ).settings(
-  ) aggregate (core, user, bucket, feed, shopplan, service)
+  ) aggregate (core, user, bucket, feed, shopplan, search, service)
 
 
 
@@ -133,6 +133,22 @@ object NeutrinoBuild extends Build with Libraries {
   ).dependsOn(core)
 
 
+  lazy val search = Project(
+    id = "neutrino-search",
+    base = file("search"),
+    settings = Project.defaultSettings ++
+      sharedSettings ++
+      SbtStartScript.startScriptForClassesSettings
+  ).settings(
+    name := "neutrino-search",
+
+    libraryDependencies ++= Seq(
+    ) ++ Libs.akka
+      ++ Libs.slf4j
+      ++ Libs.logback
+      ++ Libs.bijection
+  ).dependsOn(core)
+
 
   lazy val shopplan = Project(
     id = "neutrino-shopplan",
@@ -151,7 +167,6 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.playJson
       ++ Libs.googleMaps
   ).dependsOn(core, user, bucket)
-
 
 
   lazy val service = Project(
@@ -173,6 +188,6 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.scaldi
       ++ Libs.scaldiAkka
       ++ Libs.bijection
-  ).dependsOn(core, user, bucket, feed, shopplan)
+  ).dependsOn(core, user, bucket, feed, shopplan, search)
 
 }

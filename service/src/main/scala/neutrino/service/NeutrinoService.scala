@@ -23,6 +23,7 @@ import com.goshoplane.common._
 import com.goshoplane.neutrino.service._
 import com.goshoplane.neutrino.shopplan._
 import com.goshoplane.neutrino.feed._
+import com.goshoplane.creed.search._
 
 import goshoplane.commons.core.protocols.Implicits._
 
@@ -31,6 +32,7 @@ import shopplan._, shopplan.protocols._
 import user._, user.protocols._
 import bucket._, bucket.protocols._
 import feed._, feed.protocols._
+import search._, search.protocols._
 
 import com.twitter.util.{Future => TwitterFuture}
 import com.twitter.finagle.Thrift
@@ -59,6 +61,8 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
   val User     = system.actorOf(UserAccountSupervisor.props,  "user")
   val Bucket   = system.actorOf(BucketSupervisor.props,       "bucket")
   val Feed     = system.actorOf(FeedSupervisor.props,         "feed")
+  val Search   = system.actorOf(SearchSupervisor.props,       "search")
+
 
   val ShopPlan = system.actorOf(ShopPlanSupervisor.props(BucketActorRef(Bucket), UserActorRef(User)), "shopplan")
 
@@ -220,6 +224,19 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
     awaitResult(feedF, 500 milliseconds, {
       case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user feed"))
+    })
+  }
+
+
+  /////////////////
+  // Search APIs //
+  /////////////////
+
+  def search(request: CatalogueSearchRequest) = {
+    val resultF = Search ?= SearchCatalogue(request)
+
+    awaitResult(resultF, 500 milliseconds, {
+      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting search result"))
     })
   }
 

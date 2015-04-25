@@ -5,8 +5,6 @@ import scala.concurrent.Future
 import akka.actor.{Props, Actor, ActorLogging}
 import akka.pattern.pipe
 
-import protocols._
-
 import goshoplane.commons.core.protocols.Implicits._
 
 import com.goshoplane.common._
@@ -31,6 +29,7 @@ class BucketSupervisor extends Actor with ActorLogging {
 
   import context.dispatcher
   import settings._
+  import protocols._
 
   private val bucketDatastore = new BucketDatastore(settings)
   bucketDatastore.init()

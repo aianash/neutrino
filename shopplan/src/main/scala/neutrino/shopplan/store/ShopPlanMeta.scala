@@ -22,19 +22,6 @@ import com.datastax.driver.core.querybuilder.QueryBuilder
 /**
  * ShopPlan keyspace for
  *
- * {{{
- *
- *   CREATE TABLE  plan_friends {
- *     userId bigint,
- *     shopplanId bigint,
- *     friendId bigint,
- *     username text,
- *     useravatar: text,
- *     invitestatus int,
- *
- *     PRIMARY KEY (userId, shopplanId)
- *   }
- * }}}
  */
 class ShopPlanMeta(val settings: ShopPlanSettings)
   extends CassandraTable[ShopPlanMeta, ShopPlan] with ShopPlanConnector {
