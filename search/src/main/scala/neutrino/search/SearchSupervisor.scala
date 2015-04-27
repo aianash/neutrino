@@ -51,26 +51,25 @@ class SearchSupervisor extends Actor with ActorLogging {
   def receive = {
 
     case SearchCatalogue(request) =>
-      val creedResultF = creed.searchCatalogue(request).as[Future[CatalogueSearchResults]]
+      val creedResultF = creed.searchCatalogue(request)
 
       // Fetch details in parallel
 
       // 1. Get Item details
       val itemsF  =
-        creedResultF.flatMap(cr =>
+        creedResultF.flatMap { cr =>
           cassie.getCatalogueItems(cr.results.map(_.itemId), CatalogeItemDetailType.Summary)
-                .as[Future[Seq[SerializedCatalogueItem]]])
+        }
 
       import StoreInfoField._
 
-      val infoFields = Seq(Name, ItemTypes, Address, Avatar)
+      val infoFields = Seq(Name, ItemTypes, Address, Avatar, Contacts)
 
       // 2. Get Store details
       val storesF =
-        creedResultF.flatMap(cr =>
+        creedResultF.flatMap { cr =>
           cassie.getStores(cr.results.map(_.itemId.storeId).distinct, infoFields)
-                .as[Future[Seq[Store]]])
-
+        }
 
       val resultF =
         for {
@@ -93,7 +92,8 @@ class SearchSupervisor extends Actor with ActorLogging {
         }
 
       resultF
-        .map(result => SearchResult(searchId = request.searchId, result = result)) pipeTo sender()
+        .map(result => SearchResult(searchId = request.searchId, result = result))
+        .as[Future[SearchResult]] pipeTo sender()
 
   }
 

@@ -235,8 +235,10 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
   def search(request: CatalogueSearchRequest) = {
     val resultF = Search ?= SearchCatalogue(request)
 
-    awaitResult(resultF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting search result"))
+    awaitResult(resultF, 1 seconds, {
+      case NonFatal(ex) =>
+        log.error(ex, "Error while getting search result")
+        TFailure(NeutrinoException("Error while getting search result"))
     })
   }
 

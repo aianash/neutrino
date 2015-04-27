@@ -3,8 +3,17 @@ package neutrino.service
 import com.twitter.finagle.Thrift
 import com.twitter.util.{Future => TwitterFuture, Await}
 
+import com.twitter.finagle.Thrift
+import com.twitter.util.{Future => TwitterFuture, Await}
+
+import org.apache.thrift.protocol.TBinaryProtocol
+import com.twitter.finagle.Thrift
+import com.twitter.finagle.builder.ClientBuilder
+import com.twitter.finagle.thrift.ThriftClientFramedCodecFactory
+
 import com.goshoplane.common._
 import com.goshoplane.neutrino.service._
+import com.goshoplane.creed.search._
 
 
 /**
@@ -16,19 +25,29 @@ import com.goshoplane.neutrino.service._
 object TestNeutrinoClient {
 
   def main(args: Array[String]) {
-    val client = Thrift.newIface[Neutrino.FutureIface]("localhost:2424")
 
-    // val f = client.newShopPlanFor(UserId(1L))
+    val protocol = new TBinaryProtocol.Factory()
+    val client = ClientBuilder().codec(new ThriftClientFramedCodecFactory(None, false, protocol))
+      .dest("localhost:2424").hostConnectionLimit(2).build()
 
-    // Await.ready(f)
+    val neutrino = new Neutrino$FinagleClient(client, protocol)
 
-    // f onSuccess { response =>
-    //   println(response)
-    // }
+    val userId  = UserId(1L)
+    val seachId = CatalogueSearchId(userId, 1)
+    val param   = QueryParam(value = Some("levis men's jeans"))
+    val query   = CatalogueSearchQuery(params = Map("brand" -> param), queryText = "Men Black Jeans")
 
-    // f onFailure {
-    //   case ex: Exception => ex.printStackTrace
-    // }
+    val startTime = System.currentTimeMillis
+    val resultF   = neutrino.search(CatalogueSearchRequest(seachId, query, 1, 100))
+
+    resultF onSuccess { response =>
+      println(response)
+      println("Received result in " + (System.currentTimeMillis - startTime))
+    }
+
+    resultF onFailure {
+      case ex: Exception => ex.printStackTrace
+    }
 
   }
 }
