@@ -43,6 +43,7 @@ object TestNeutrinoClient {
     resultF onSuccess { response =>
       println(response)
       println("Received result in " + (System.currentTimeMillis - startTime))
+      response.result.flatMap(_.items).map(_.json).foreach(println(_))
     }
 
     resultF onFailure {

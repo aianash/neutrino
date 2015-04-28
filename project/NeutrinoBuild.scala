@@ -147,6 +147,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.slf4j
       ++ Libs.logback
       ++ Libs.bijection
+      ++ Libs.playJson
   ).dependsOn(core)
 
 

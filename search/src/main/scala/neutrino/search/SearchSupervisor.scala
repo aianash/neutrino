@@ -15,6 +15,7 @@ import com.twitter.bijection._, Conversion.asMethod
 import com.twitter.bijection.twitter_util.UtilBijections._
 
 import goshoplane.commons.core.protocols.Implicits._
+import goshoplane.commons.catalogue.CatalogueItem
 
 import com.goshoplane.common._
 import com.goshoplane.neutrino.service._
@@ -81,11 +82,14 @@ class SearchSupervisor extends Actor with ActorLogging {
 
           stores.flatMap { store =>
             grpdItems.get(store.storeId.stuid).map { items =>
+              val jsonItems =
+                items.flatMap(CatalogueItem.decode(_).flatMap(CatalogueItem.asJsonItem(_)))
+
               SearchResultStore(
                 storeId   = store.storeId,
                 storeType = store.storeType,
                 info      = store.info,
-                items     = items
+                items     = jsonItems
               )
             }
           }
