@@ -51,8 +51,9 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
 
     val shopplansF = ShopPlanMetaByInvitation.getOwnShopPlansBy(userId).fetch()
 
-    // Get stores
-    val storesF =
+    // Get stores with or without catalogue items
+    // [TO FIX] Shopplan items not being fetched
+    var storesF =
       fields.find(_ == Stores)
         .map { _ => ShopPlanStores.getStoresBy(userId, toStoreField(fields)).fetch().map(_.some) }
         .getOrElse(Future.successful(None))
@@ -110,13 +111,13 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
           val (storesF, destinationsF, invitesF) = getShopPlanFields(shopplanId, fields)
 
           for {
-            stores <- storesF
-            destinations <- destinationsF
-            invites <- invitesF
+            stores        <- storesF
+            destinations  <- destinationsF
+            invites       <- invitesF
           } yield shopplan.copy(
-              stores = stores,
+              stores       = stores,
               destinations = destinations,
-              invites = invites
+              invites      = invites
             )
         }
 
@@ -176,6 +177,11 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
     // Once shop plan's meta has been inserted
     // Insert data to other tables
 
+    shopplan.stores.foreach { stores =>
+      stores.flatMap(_.catalogueItems.getOrElse(Seq.empty[JsonCatalogueItem]))
+            .foreach(item => batch add ShopPlanItems.insertItem(shopplan.shopplanId, item))
+    }
+
     shopplan.stores      .foreach(_.foreach(store =>       batch add ShopPlanStores.insertStore(store)))
     shopplan.destinations.foreach(_.foreach(destination => batch add ShopPlanDestinations.insertDestination(destination)))
 
@@ -230,6 +236,7 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
       batch add ShopPlanMetaByInvitation.deleteShopPlansBy(shopplanId)
       batch add ShopPlanStores          .deleteStoresBy(shopplanId)
       batch add ShopPlanDestinations    .deleteDestinationsBy(shopplanId)
+      batch add ShopPlanItems           .deleteItemsBy(shopplanId)
 
 
     ShopPlanInvites.getInvitesBy(shopplanId).fetch() flatMap { invites =>
@@ -255,7 +262,7 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
 
     val storesF =
       fields.find(_ == Stores)
-        .map { _ => ShopPlanStores.getStoresBy(shopplanId, toStoreField(fields)).fetch().map(_.some) }
+        .map { _ => getShopPlanStores(shopplanId, toStoreField(fields)).map(_.some) }
         .getOrElse(Future.successful(None))
 
     val destinationsF =
@@ -273,6 +280,27 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
   }
 
 
+  private def getShopPlanStores(shopplanId: ShopPlanId, fields: Seq[ShopPlanStoreField])(implicit executor: ExecutionContext) = {
+    import ShopPlanStoreField._
+
+    var storesF = ShopPlanStores.getStoresBy(shopplanId, fields).fetch()
+
+    if(fields.exists(_ == CatalogueItems)) {
+      val grpdItemsF =
+        ShopPlanItems.getItemsBy(shopplanId).fetch()
+                     .map(items => items.groupBy(_.itemId.storeId.stuid))
+
+      for {
+        stores    <- storesF
+        grpdItems <- grpdItemsF
+      } yield
+        stores.map(store =>
+          store.copy(catalogueItems = grpdItems.get(store.storeId.stuid)))
+
+    } else storesF
+
+  }
+
 
   /**
    * Create Seq[ShopPlanStoreField] from Seq[ShopPlanField]
@@ -280,9 +308,10 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
   private def toStoreField(fields: Seq[ShopPlanField]) = {
     import ShopPlanStoreField._
 
-    val storeFields = Seq(Name, Address, ItemTypes)
-    if(fields.contains(CatalogueItems)) storeFields :+ CatalogueItems
-    else storeFields
+    var storeFields = Seq(Name, Address, Avatar, ItemTypes, Contacts)
+    if(fields.contains(CatalogueItems))    storeFields = storeFields :+ CatalogueItems
+    if(fields.contains(CatalogueItemIds))  storeFields = storeFields :+ CatalogueItemIds
+    storeFields
   }
 
 }

@@ -24,7 +24,7 @@ import goshoplane.commons.core.factories._
 
 
 class BucketItems(val settings: BucketSettings)
-  extends CassandraTable[BucketItems, (BucketStore, SerializedCatalogueItem)]
+  extends CassandraTable[BucketItems, (BucketStore, JsonCatalogueItem)]
   with BucketConnector {
 
   override def tableName = "bucket_items"
@@ -39,7 +39,7 @@ class BucketItems(val settings: BucketSettings)
   object handle extends OptionalStringColumn(this)
 
   // item types
-  object itemTypes extends SetColumn[BucketItems, (BucketStore, SerializedCatalogueItem), String](this)
+  object itemTypes extends SetColumn[BucketItems, (BucketStore, JsonCatalogueItem), String](this)
 
   // address
   object lat extends OptionalDoubleColumn(this)
@@ -59,9 +59,8 @@ class BucketItems(val settings: BucketSettings)
   object email extends OptionalStringColumn(this)
 
   // serializer identifiers
-  object sid extends StringColumn(this)
-  object stype extends StringColumn(this)
-  object stream extends BlobColumn(this)
+  object versionId extends StringColumn(this)
+  object json extends StringColumn(this)
 
 
   override def fromRow(row: Row) = {
@@ -78,13 +77,13 @@ class BucketItems(val settings: BucketSettings)
       info      = Common.storeInfo(nameO, itemTypesO, addressO, avatarO, email(row), None).getOrElse(StoreInfo()) // [NOTE] intentionally left phone number
     )
 
-    val serializerType  = SerializerType.valueOf(stype(row)).getOrElse(SerializerType.Msgpck)
+    // val serializerType  = SerializerType.valueOf(stype(row)).getOrElse(SerializerType.Msgpck)
 
-    val item = SerializedCatalogueItem(
+    val item = JsonCatalogueItem(
       itemId       = CatalogueItemId(storeId = storeId, cuid = cuid(row)),
-      serializerId = SerializerId(sid = sid(row), stype = serializerType),
-      stream       = stream.optional(row).getOrElse(ByteBuffer.wrap(Array.empty[Byte])) // [NOTE] if full detail was not
-                                                                                        // required then send empty buffer
+      versionId    = versionId(row),
+      json         = json.optional(row).getOrElse("") // If full detail is not
+                                                      // required then send empty string
     )
 
     (store, item)
@@ -118,11 +117,10 @@ class BucketItems(val settings: BucketSettings)
       store.catalogueItems.toSeq.flatten foreach { item =>
         val insertQ =
           partialQ
-            .value(_.stuid,   item.itemId.storeId.stuid)
-            .value(_.cuid,    item.itemId.cuid)
-            .value(_.sid,     item.serializerId.sid)
-            .value(_.stype,   item.serializerId.stype.name)
-            .value(_.stream,  item.stream)
+            .value(_.stuid,     item.itemId.storeId.stuid)
+            .value(_.cuid,      item.itemId.cuid)
+            .value(_.versionId, item.versionId)
+            .value(_.json,      item.json)
 
         batch add insertQ
       }
@@ -162,9 +160,9 @@ class BucketItems(val settings: BucketSettings)
       case Name             => Seq("fullname", "handle")
       case Address          => Seq("lat", "lng", "addressTitle", "addressShort", "addressFull", "pincode", "country", "city")
       case ItemTypes        => Seq("itemTypes")
-      case CatalogueItems   => Seq("stream")
+      case CatalogueItems   => Seq("json")
       case _                => Seq.empty[String]
-    } ++ Seq("uuid", "stuid", "storeType", "cuid", "sid", "stype") // always all ids, since if this table is accessed
+    } ++ Seq("uuid", "stuid", "storeType", "cuid", "versionId")    // always all ids, since if this table is accessed
                                                                    // then definately for some catalogue information
                                                                    // i.e. atleast ids
 

@@ -6,6 +6,7 @@ import akka.actor.{Props, Actor, ActorLogging}
 import akka.pattern.pipe
 
 import goshoplane.commons.core.protocols.Implicits._
+import goshoplane.commons.catalogue.CatalogueItem
 
 import com.goshoplane.common._
 import com.goshoplane.neutrino.shopplan._
@@ -64,20 +65,22 @@ class BucketSupervisor extends Actor with ActorLogging {
           itemIds  <- cud.adds
         } yield {
           // 1. Get details for stores and items from cassie
-          val storesF = cassie.getStores(storeIds, Seq(Name, ItemTypes, Address, Avatar, Contacts)).as[Future[Seq[Store]]]
-          val itemsF  = cassie.getCatalogueItems(itemIds, CatalogeItemDetailType.Summary).as[Future[Seq[SerializedCatalogueItem]]]
+          val storesF = cassie.getStores(storeIds, Seq(Name, ItemTypes, Address, Avatar, Contacts))
+          val itemsF  = cassie.getCatalogueItems(itemIds, CatalogeItemDetailType.Summary)
 
           val successFF =
             for {
               stores <- storesF
               items  <- itemsF
             } yield {
-              val grpdItems    = items.groupBy(_.itemId.storeId.stuid) // 2. group by items based on stores
-              val bucketStores = stores.map {store =>                  // 3. create bucket stores with corrspding items
+              val jsonItems = items.flatMap(CatalogueItem.asJsonItem(_))
+              val grpdItems = jsonItems.groupBy(_.itemId.storeId.stuid)  // 2. group by items based on stores
+
+              val bucketStores = stores.map { store =>                   // 3. create bucket stores with corrspding items
                 BucketStore(
-                  storeId = store.storeId,
-                  storeType = store.storeType,
-                  info = store.info,
+                  storeId        = store.storeId,
+                  storeType      = store.storeType,
+                  info           = store.info,
                   catalogueItems = grpdItems.get(store.storeId.stuid)
                 )
               }
@@ -85,7 +88,7 @@ class BucketSupervisor extends Actor with ActorLogging {
               bucketDatastore.insertBucketStores(userId, bucketStores) // 4. insert stores and items into storage
             }
 
-          successFF.flatMap(identity)
+          successFF.as[Future[Future[Boolean]]].flatMap(identity)
         }
 
       successOF getOrElse(Future.successful(true)) pipeTo sender()     // 5. send back the result

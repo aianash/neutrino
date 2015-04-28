@@ -67,7 +67,7 @@ sealed class BucketDatastore(val settings: BucketSettings)
           val (store, item) = storeItem
           val newStore =
             map.get(store.storeId)
-               .map(store => store.copy(catalogueItems = store.catalogueItems.map(_ :+ item )))
+               .map(store => store.copy(catalogueItems = store.catalogueItems.map(_ :+ item)))
                .getOrElse(store.copy(catalogueItems = Seq(item).some))
 
           map += (store.storeId -> newStore)
