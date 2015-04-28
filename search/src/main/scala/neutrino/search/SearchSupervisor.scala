@@ -83,7 +83,7 @@ class SearchSupervisor extends Actor with ActorLogging {
           stores.flatMap { store =>
             grpdItems.get(store.storeId.stuid).map { items =>
               val jsonItems =
-                items.flatMap(CatalogueItem.decode(_).flatMap(CatalogueItem.asJsonItem(_)))
+                items.flatMap(CatalogueItem.asJsonItem(_))
 
               SearchResultStore(
                 storeId   = store.storeId,
