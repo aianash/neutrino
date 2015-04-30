@@ -19,6 +19,8 @@ class BucketSettings(cfg: Config) extends Extension {
   val CassandraKeyspace = config.getString("neutrino.bucket.cassandraKeyspace")
   val ServiceId         = config.getLong("neutrino.service.id")
   val DatacenterId      = config.getLong("neutrino.datacenter.id")
+  val CassieHost        = config.getString("neutrino.cassie.host")
+  val CassiePort        = config.getInt("neutrino.cassie.port")
 }
 
 

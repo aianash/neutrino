@@ -40,7 +40,7 @@ class BucketSupervisor extends Actor with ActorLogging {
   val cassie = {
     val protocol = new TBinaryProtocol.Factory()
     val client = ClientBuilder().codec(new ThriftClientFramedCodecFactory(None, false, protocol))
-      .dest("127.0.0.1:2106").hostConnectionLimit(2).build()
+      .dest(CassieHost + ":" + CassiePort).hostConnectionLimit(2).build()
 
     new Cassie$FinagleClient(client, protocol)
   }

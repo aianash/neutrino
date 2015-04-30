@@ -127,7 +127,9 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val storesF = Bucket ?= GetBucketStores(userId, fields)
 
     awaitResult(storesF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting bucket stores for user"))
+      case NonFatal(ex) =>
+        log.error(ex, "Error while getting bucket stores for user")
+        TFailure(NeutrinoException("Error while getting bucket stores for user"))
     })
   }
 
@@ -136,7 +138,9 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val successF = Bucket ?= ModifyBucket(userId, cud)
 
     awaitResult(successF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while modifying bucket"))
+      case NonFatal(ex) =>
+        log.error(ex, "Error while modifying bucket")
+        TFailure(NeutrinoException("Error while modifying bucket"))
     })
   }
 

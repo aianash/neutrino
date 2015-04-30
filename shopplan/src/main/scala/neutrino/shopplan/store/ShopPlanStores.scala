@@ -62,7 +62,7 @@ class ShopPlanStores(val settings: ShopPlanSettings)
   object email extends OptionalStringColumn(this)
   object phoneNums extends SetColumn[ShopPlanStores, ShopPlanStore, String](this)
 
-  // cuids of the shopplan stores
+  // cuids of the shopplan stores' items
   object cuids extends SetColumn[ShopPlanStores, ShopPlanStore, Long](this)
 
   override def fromRow(row: Row) = {
@@ -89,6 +89,45 @@ class ShopPlanStores(val settings: ShopPlanSettings)
       itemIds   = itemIds
     )
 
+  }
+
+
+  def fromRow(fields: Seq[ShopPlanStoreField])(row: Row) = {
+    import ShopPlanStoreField._
+
+    val info =
+      fields.foldLeft(StoreInfo()) { (info, field) =>
+        field match {
+          case Name            => info.copy(name      = Common.storeName(fullname(row), handle(row)))
+          case ItemTypes       => info.copy(itemTypes = itemTypes(row).flatMap(ItemType.valueOf(_)).toSeq.some)
+          case Avatar          => info.copy(avatar    = Common.storeAvatar(small(row), medium(row), large(row)))
+          case Contacts        => info.copy(phone     = Common.phoneContact(phoneNums(row).toSeq), email = email(row))
+          case Address         =>
+            val gpsLoc = for(lat <- lat(row); lng <- lng(row)) yield GPSLocation(lat, lng)
+            info.copy(address = Common.address(gpsLoc, addressTitle(row), addressShort(row), addressFull(row), pincode(row), country(row), city(row)))
+          case _               => info
+        }
+      }
+
+    val destinationId =
+      DestinationId(
+        shopplanId = ShopPlanId(suid = suid(row), createdBy = UserId(uuid = uuid(row))),
+        dtuid      = dtuid(row)
+      )
+
+    val storeId = StoreId(stuid = stuid(row))
+
+    val itemIds = fields.find(_ == CatalogueItemIds).map { _ =>
+      cuids(row).map(cuid => CatalogueItemId(storeId = storeId, cuid = cuid)).toSeq
+    }
+
+    ShopPlanStore(
+      storeId   = storeId,
+      destId    = destinationId,
+      storeType = StoreType.valueOf(storeType(row)).getOrElse(StoreType.Unknown),
+      info      = info,
+      itemIds   = itemIds
+    )
   }
 
 
@@ -129,7 +168,7 @@ class ShopPlanStores(val settings: ShopPlanSettings)
     val selectors = fieldToSelectors(fields)
 
     val select =
-      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow)
+      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow(fields))
 
     select.where(_.uuid eqs userId.uuid)
   }
@@ -142,7 +181,7 @@ class ShopPlanStores(val settings: ShopPlanSettings)
     val selectors = fieldToSelectors(fields)
 
     val select =
-      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow)
+      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow(fields))
 
     select.where(_.uuid eqs shopplanId.createdBy.uuid)
           .and(  _.suid eqs shopplanId.suid)

@@ -57,6 +57,7 @@ class BucketItems(val settings: BucketSettings)
   object large extends OptionalStringColumn(this)
 
   object email extends OptionalStringColumn(this)
+  object phoneNums extends SetColumn[BucketItems, (BucketStore, JsonCatalogueItem), String](this)
 
   // serializer identifiers
   object versionId extends StringColumn(this)
@@ -77,8 +78,6 @@ class BucketItems(val settings: BucketSettings)
       info      = Common.storeInfo(nameO, itemTypesO, addressO, avatarO, email(row), None).getOrElse(StoreInfo()) // [NOTE] intentionally left phone number
     )
 
-    // val serializerType  = SerializerType.valueOf(stype(row)).getOrElse(SerializerType.Msgpck)
-
     val item = JsonCatalogueItem(
       itemId       = CatalogueItemId(storeId = storeId, cuid = cuid(row)),
       versionId    = versionId(row),
@@ -90,6 +89,42 @@ class BucketItems(val settings: BucketSettings)
   }
 
 
+  def fromRow(fields: Seq[BucketStoreField])(row: Row) = {
+    import BucketStoreField._
+
+    val info =
+      fields.foldLeft(StoreInfo()) { (info, field) =>
+        field match {
+          case Name            => info.copy(name      = Common.storeName(fullname(row), handle(row)))
+          case ItemTypes       => info.copy(itemTypes = itemTypes(row).flatMap(ItemType.valueOf(_)).toSeq.some)
+          case Avatar          => info.copy(avatar    = Common.storeAvatar(small(row), medium(row), large(row)))
+          case Contacts        => info.copy(phone     = Common.phoneContact(phoneNums(row).toSeq), email = email(row))
+          case Address         =>
+            val gpsLoc = for(lat <- lat(row); lng <- lng(row)) yield GPSLocation(lat, lng)
+            info.copy(address = Common.address(gpsLoc, addressTitle(row), addressShort(row), addressFull(row), pincode(row), country(row), city(row)))
+          case _               => info
+        }
+      }
+
+    val storeId = StoreId(stuid = stuid(row))
+
+    val store = BucketStore(
+      storeId   = storeId,
+      storeType = StoreType.valueOf(storeType(row)).getOrElse(StoreType.Unknown),
+      info      = info
+    )
+
+    val jsonText = fields.find(_ == CatalogueItems).map { _ => json(row) } getOrElse("")
+
+    val item = JsonCatalogueItem(
+      itemId       = CatalogueItemId(storeId = storeId, cuid = cuid(row)),
+      versionId    = versionId(row),
+      json         = jsonText
+    )
+
+    (store, item)
+  }
+
 
   def insertStoreItems(userId: UserId, stores: Seq[BucketStore]) = {
     val batch = BatchStatement()
@@ -98,6 +133,7 @@ class BucketItems(val settings: BucketSettings)
       val partialQ =
         insert
           .value(_.uuid,          userId.uuid)
+          .value(_.storeType,     store.storeType.name)
           .value(_.fullname,      store.info.name.flatMap(_.full))
           .value(_.handle,        store.info.name.flatMap(_.handle))
           .value(_.itemTypes,     store.info.itemTypes.map(_.map(_.name).toSet).getOrElse(Set.empty[String]))
@@ -134,7 +170,7 @@ class BucketItems(val settings: BucketSettings)
     val selectors = fieldToSelectors(fields)
 
     val select =
-      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow)
+      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow(fields))
 
     select.where(_.uuid eqs userId.uuid)
   }
@@ -144,7 +180,7 @@ class BucketItems(val settings: BucketSettings)
     val selectors = fieldToSelectors(fields)
 
     val select =
-      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow)
+      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow(fields))
 
     select.where(_.uuid eqs userId.uuid)
           .and(  _.stuid in storeIds.map(_.stuid).toList)
@@ -160,6 +196,8 @@ class BucketItems(val settings: BucketSettings)
       case Name             => Seq("fullname", "handle")
       case Address          => Seq("lat", "lng", "addressTitle", "addressShort", "addressFull", "pincode", "country", "city")
       case ItemTypes        => Seq("itemTypes")
+      case Avatar           => Seq("small", "medium", "large")
+      case Contacts         => Seq("email", "phoneNums")
       case CatalogueItems   => Seq("json")
       case _                => Seq.empty[String]
     } ++ Seq("uuid", "stuid", "storeType", "cuid", "versionId")    // always all ids, since if this table is accessed

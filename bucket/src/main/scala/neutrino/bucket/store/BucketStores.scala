@@ -49,6 +49,7 @@ class BucketStores(val settings: BucketSettings)
   object large extends OptionalStringColumn(this)
 
   object email extends OptionalStringColumn(this)
+  object phoneNums extends SetColumn[BucketStores, BucketStore, String](this)
 
 
 
@@ -57,14 +58,41 @@ class BucketStores(val settings: BucketSettings)
     val addressO   = Common.address(gpsLoc, addressTitle(row), addressShort(row), addressFull(row), pincode(row), country(row), city(row))
     val nameO      = Common.storeName(fullname(row), handle(row))
     val avatarO    = Common.storeAvatar(small(row), medium(row), large(row))
+    val phoneO     = Common.phoneContact(phoneNums(row).toSeq)
     val itemTypesO = itemTypes(row).flatMap(ItemType.valueOf(_)).toSeq.some
 
     BucketStore(
       storeId   = StoreId(stuid = stuid(row)),
       storeType = StoreType.valueOf(storeType(row)).getOrElse(StoreType.Unknown),
-      info      = Common.storeInfo(nameO, itemTypesO, addressO, avatarO, email(row), None).getOrElse(StoreInfo()) // [NOTE] intentionally left phone number
+      info      = Common.storeInfo(nameO, itemTypesO, addressO, avatarO, email(row), phoneO).getOrElse(StoreInfo())
     )
   }
+
+
+  def fromRow(fields: Seq[BucketStoreField])(row: Row) = {
+    import BucketStoreField._
+
+    val info =
+      fields.foldLeft(StoreInfo()) { (info, field) =>
+        field match {
+          case Name            => info.copy(name      = Common.storeName(fullname(row), handle(row)))
+          case ItemTypes       => info.copy(itemTypes = itemTypes(row).flatMap(ItemType.valueOf(_)).toSeq.some)
+          case Avatar          => info.copy(avatar    = Common.storeAvatar(small(row), medium(row), large(row)))
+          case Contacts        => info.copy(phone     = Common.phoneContact(phoneNums(row).toSeq), email = email(row))
+          case Address         =>
+            val gpsLoc = for(lat <- lat(row); lng <- lng(row)) yield GPSLocation(lat, lng)
+            info.copy(address = Common.address(gpsLoc, addressTitle(row), addressShort(row), addressFull(row), pincode(row), country(row), city(row)))
+          case _               => info
+        }
+      }
+
+    BucketStore(
+      storeId   = StoreId(stuid = stuid(row)),
+      storeType = StoreType.valueOf(storeType(row)).getOrElse(StoreType.Unknown),
+      info      = info
+    )
+  }
+
 
   def insertStore(userId: UserId, store: BucketStore) =
     insert
@@ -86,13 +114,14 @@ class BucketStores(val settings: BucketSettings)
       .value(_.medium,        store.info.avatar.flatMap(_.medium))
       .value(_.large,         store.info.avatar.flatMap(_.large))
       .value(_.email,         store.info.email)
+      .value(_.phoneNums,     store.info.phone.map(_.numbers.toSet).getOrElse(Set.empty[String]))
 
 
   def getBucketStoresBy(userId: UserId, fields: Seq[BucketStoreField]) = {
     val selectors = fieldToSelectors(fields)
 
     val select =
-      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow)
+      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow(fields))
 
     select.where(_.uuid eqs userId.uuid)
   }
@@ -102,7 +131,7 @@ class BucketStores(val settings: BucketSettings)
     val selectors = fieldToSelectors(fields)
 
     val select =
-      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow)
+      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow(fields))
 
     select.where(_.uuid eqs userId.uuid)
           .and(  _.stuid in storeIds.map(_.stuid).toList)
@@ -111,12 +140,16 @@ class BucketStores(val settings: BucketSettings)
   ////////////////////////////// Private methods ///////////////////////////////
 
   private def fieldToSelectors(fields: Seq[BucketStoreField]) = {
+    import BucketStoreField._
+
     fields.flatMap {
-      case BucketStoreField.Name            => Seq("fullname", "handle")
-      case BucketStoreField.Address         => Seq("lat", "lng", "addressTitle", "addressShort", "addressFull", "pincode", "country", "city")
-      case BucketStoreField.ItemTypes       => Seq("itemTypes")
-      case _                                => Seq.empty[String]
-    } ++ Seq("uuid", "stuid")
+      case Name            => Seq("fullname", "handle")
+      case Address         => Seq("lat", "lng", "addressTitle", "addressShort", "addressFull", "pincode", "country", "city")
+      case ItemTypes       => Seq("itemTypes")
+      case Avatar          => Seq("small", "medium", "large")
+      case Contacts        => Seq("email", "phoneNums")
+      case _               => Seq.empty[String]
+    } ++ Seq("uuid", "stuid", "storeType")
   }
 
 }
