@@ -73,30 +73,39 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
   // User APIs //
   ///////////////
 
-  def createUser(userInfo: UserInfo) = {
-    val userIdF =
-      userInfo.facebookInfo.map { facebookInfo =>
+  def createUser(userInfo: UserInfo) =
+    userInfo.facebookInfo.map { facebookInfo =>
+      val userIdF =
         (User ?= IsExistingFBUser(facebookInfo.userId)).flatMap { userIdO =>
           userIdO match {
             case Some(userId) => (User ?= UpdateUser(userId, userInfo)).map(_ => userId)
             case None         =>  User ?= CreateUser(userInfo)
           }
         }
-      } getOrElse {
-        User ?= CreateUser(userInfo)
-      }
 
-    awaitResult(userIdF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while creating user"))
-    })
-  }
+      awaitResult(userIdF, 500 milliseconds, {
+        case NonFatal(ex) =>
+          val statement = s"Error while creating/updating user for " +
+                          s"facebook user id = ${facebookInfo.userId.uuid}"
+
+          log.error(ex, statement)
+          TFailure(NeutrinoException(statement))
+      })
+
+    } getOrElse TwitterFuture.exception(NeutrinoException("Facebook info should be provided"))
+
 
 
   def updateUser(userId: UserId, userInfo: UserInfo) = {
     val successF = User ?= UpdateUser(userId, userInfo)
 
     awaitResult(successF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while updating user"))
+      case NonFatal(ex) =>
+        val statement = s"Error while updating user info for " +
+                        s"user id = ${userId.uuid}"
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -105,7 +114,12 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val infoF = User ?= GetUserDetail(userId)
 
     awaitResult(infoF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while retrieving user info"))
+      case NonFatal(ex) =>
+        val statement = s"Error while getting user detail for " +
+                        s"user id = ${userId.uuid}"
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -114,7 +128,13 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val friendsF = User ?= GetFriendsForInvite(userId, filter)
 
     awaitResult(friendsF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user friends to invite"))
+      case NonFatal(ex) =>
+        val statement = s"Error while getting friends to invite for " +
+                        s"user id = ${userId.uuid} " +
+                        s"and filter = ${filter.location}"
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -128,8 +148,12 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
     awaitResult(storesF, 500 milliseconds, {
       case NonFatal(ex) =>
-        log.error(ex, "Error while getting bucket stores for user")
-        TFailure(NeutrinoException("Error while getting bucket stores for user"))
+        val statement = s"Error while getting bucket stores for " +
+                        s"user id = ${userId.uuid} " +
+                        s"and fields = " + fields.mkString(", ")
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -139,8 +163,11 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
     awaitResult(successF, 500 milliseconds, {
       case NonFatal(ex) =>
-        log.error(ex, "Error while modifying bucket")
-        TFailure(NeutrinoException("Error while modifying bucket"))
+        val statement = s"Error while cud operation on bucket for " +
+                        s"user id = ${userId.uuid}"
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -152,7 +179,13 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val storesF = ShopPlan ?= GetShopPlanStores(shopplanId, fields)
 
     awaitResult(storesF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting shopplan's stores"))
+      case NonFatal(ex) =>
+        val statement = s"Error while getting shop plan stores for " +
+                        s"shop plan id = ${shopplanId.createdBy.uuid}.${shopplanId.suid} " +
+                        s"fields = " + fields.mkString(", ")
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -161,7 +194,13 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val shopplansF = ShopPlan ?= GetOwnShopPlans(userId, fields)
 
     awaitResult(shopplansF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user's shopplans"))
+      case NonFatal(ex) =>
+        val statement = s"Error while getting user's own shop plan for " +
+                        s"user id = ${userId.uuid} " +
+                        s"and fields = " + fields.mkString(", ")
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -170,15 +209,28 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val shopplansF = ShopPlan ?= GetInvitedShopPlans(userId, fields)
 
     awaitResult(shopplansF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user's invited shopplans"))
+      case NonFatal(ex) =>
+        val statement = s"Error while getting invited shop plans for " +
+                        s"user id = ${userId.uuid} " +
+                        s"and fields = " + fields.mkString(", ")
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
+
 
   def getShopPlan(shopplanId: ShopPlanId, fields: Seq[ShopPlanField]) = {
     val shopplanF = ShopPlan ?= GetShopPlan(shopplanId, fields)
 
     awaitResult(shopplanF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user shopplan detail"))
+      case NonFatal(ex) =>
+        val statement = s"Error while getting shop plan detail for " +
+                        s"shop plan id = ${shopplanId.createdBy.uuid}.${shopplanId.suid} " +
+                        s"and fields = " + fields.mkString(", ")
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -187,7 +239,12 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val shopplanIdF = ShopPlan ?= CreateShopPlan(userId, cud)
 
     awaitResult(shopplanIdF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while creating shopplan for user"))
+      case NonFatal(ex) =>
+        val statement = s"Error while creating shop plan for " +
+                        s"user id = ${userId.uuid}"
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -196,7 +253,12 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val successF = ShopPlan ?= ModifyShopPlan(shopplanId, cud)
 
     awaitResult(successF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while create/update/delete shopplan"))
+      case NonFatal(ex) =>
+        val statement = s"Error while performing cud operation on shop plan for " +
+                        s"shop plan id = ${shopplanId.createdBy.uuid}.${shopplanId.suid}"
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -205,7 +267,12 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val successF = ShopPlan ?= EndShopPlan(shopplanId)
 
     awaitResult(successF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while ending shopplan"))
+      case NonFatal(ex) =>
+        val statement = s"Error while ending shop plan for " +
+                        s"shop plan id = ${shopplanId.createdBy.uuid}.${shopplanId.suid}"
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -218,7 +285,13 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val feedF = Feed ?= GetCommonFeed(filter)
 
     awaitResult(feedF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting common feed"))
+      case NonFatal(ex) =>
+        val statement = s"Error while getting common feed for " +
+                        s"location = ${filter.location} " +
+                        s"page  = ${filter.page}"
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -227,7 +300,14 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
     val feedF = Feed ?= GetUserFeed(userId, filter)
 
     awaitResult(feedF, 500 milliseconds, {
-      case NonFatal(ex) => TFailure(NeutrinoException("Error while getting user feed"))
+      case NonFatal(ex) =>
+        val statement = s"Error while getting user feed for " +
+                        s"user id = ${userId.uuid} " +
+                        s"and location = ${filter.location} " +
+                        s"and page = ${filter.page}"
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
@@ -241,8 +321,11 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
     awaitResult(resultF, 1 seconds, {
       case NonFatal(ex) =>
-        log.error(ex, "Error while getting search result")
-        TFailure(NeutrinoException("Error while getting search result"))
+        val statement = s"Error while searching for " +
+                        s"search id = ${request.searchId.userId.uuid}.${request.searchId.sruid}"
+
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
     })
   }
 
