@@ -53,6 +53,7 @@ class ShopPlanMeta(val settings: ShopPlanSettings)
   def insertShopPlan(userId: UserId, shopPlan: ShopPlan) =
     insert
       .value(_.uuid,          userId.uuid)
+      .value(_.suid,          shopPlan.shopplanId.suid)
       .value(_.cyuid,         shopPlan.shopplanId.createdBy.uuid)
       .value(_.title,         shopPlan.title)
       .value(_.isInvitation,  shopPlan.isInvitation)
@@ -125,6 +126,7 @@ class ShopPlanMetaByInvitation(val settings: ShopPlanSettings)
   def insertShopPlan(userId: UserId, shopPlan: ShopPlan) =
     insert
       .value(_.uuid,          userId.uuid)
+      .value(_.suid,          shopPlan.shopplanId.suid)
       .value(_.cyuid,         shopPlan.shopplanId.createdBy.uuid)
       .value(_.title,         shopPlan.title)
       .value(_.isInvitation,  shopPlan.isInvitation)

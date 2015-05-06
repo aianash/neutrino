@@ -7,8 +7,8 @@ import akka.util.Timeout
 import akka.pattern.pipe
 
 import goshoplane.commons.core.protocols.Implicits._
+import goshoplane.commons.core.services.{UUIDGenerator, NextId}
 
-import neutrino.core.services._
 import neutrino.user.store._
 
 import com.goshoplane.common._
@@ -39,7 +39,7 @@ class UserAccountSupervisor extends Actor with ActorLogging {
 
       val userIdF =
         for {
-          uuid   <- UUID ?= NextId("user")
+          uuid   <- (UUID ?= NextId("user")).map(_.get)
           userId <- Future.successful(UserId(uuid = uuid))
           _ <- userAccDatastore.createUser(userId, userInfo)
         } yield userId

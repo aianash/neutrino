@@ -2,6 +2,7 @@ package neutrino.shopplan
 
 import scala.concurrent._, duration._
 import scala.util.control.NonFatal
+import scala.util.Failure
 
 import akka.actor.{Actor, ActorLogging, Props, ActorRef}
 import akka.actor.{PoisonPill, Terminated}
@@ -11,9 +12,9 @@ import akka.pattern.pipe
 import com.goshoplane.neutrino.shopplan._
 
 import goshoplane.commons.core.protocols._, Implicits._
+import goshoplane.commons.core.services._
 
 import neutrino.core._
-import neutrino.core.services._
 import neutrino.shopplan.store._
 
 import scalaz._, Scalaz._
@@ -64,7 +65,7 @@ class ShopPlanSupervisor(
 
 
     case GetShopPlan(shopplanId, fields) =>
-      shopplanDatastore.getShopPlan(shopplanId, fields) pipeTo sender()
+      shopplanDatastore.getShopPlan(shopplanId, fields).map(_.get) pipeTo sender()
 
 
 
@@ -74,16 +75,23 @@ class ShopPlanSupervisor(
 
 
     case CreateShopPlan(userId, cud) =>
-      implicit val timeout = Timeout(1 seconds)
+      implicit val timeout = Timeout(5 seconds)
 
       val shopplanIdF =
         for {
-          suid        <- UUID ?= NextId("shopplan")
+          suid        <- (UUID ?= NextId("shopplan")).map(_.get)
           shopplanId  <- Future.successful(ShopPlanId(suid = suid, createdBy = userId))
           _           <- getOrCreateShopPlanner(shopplanId) ?= AddNewShopPlan(shopplanId, cud)
         } yield shopplanId
 
-      shopplanIdF pipeTo sender()
+      shopplanIdF
+      .andThen {
+        case Failure(NonFatal(ex)) =>
+          log.error(ex, "Caught error = {} while creating shop plan for user id = {}",
+                        ex.getMessage,
+                        userId.uuid)
+
+      } pipeTo sender()
 
 
 

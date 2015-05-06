@@ -60,8 +60,8 @@ sealed class BucketDatastore(val settings: BucketSettings)
     if(fields.forall(field => field != CatalogueItems && field != CatalogueItemIds))
       BucketStores.getBucketStoresBy(userId, storeIds, fields).fetch()
     else {
-      for {
-        storeItems <- BucketItems.getBucketItemsBy(userId, storeIds, fields).fetch()
+      for {             /// [IMP] vvvv will be improved soon
+        storeItems <- Future.sequence(storeIds.map(BucketItems.getBucketItemsBy(userId, _, fields).fetch())).map(_.flatMap(identity)) // too many queries
       } yield
         storeItems.foldLeft(MutableMap.empty[StoreId, BucketStore])({ (map, storeItem) =>
           val (store, item) = storeItem
@@ -79,6 +79,17 @@ sealed class BucketDatastore(val settings: BucketSettings)
     val batch = BucketItems.insertStoreItems(userId, stores)
     stores foreach {store =>
       batch add BucketStores.insertStore(userId, store)
+    }
+
+    batch.future().map(_ => true)
+  }
+
+
+  def deleteBucketStores(userId: UserId, storeIds: Seq[StoreId])(implicit executor: ExecutionContext) = {
+    val batch = BatchStatement()
+    storeIds foreach { storeId =>
+      batch add BucketStores.deleteBucketStoreBy(userId, storeId)
+      batch add BucketItems.deleteBucketItemsBy(userId, storeId)
     }
 
     batch.future().map(_ => true)

@@ -34,7 +34,7 @@ case class GetShopPlan(shopplanId: ShopPlanId, fields: Seq[ShopPlanField])
   extends ShopPlanMessages with Replyable[ShopPlan]
 
 case class AddNewShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan)
-  extends ShopPlanMessages with Replyable[ShopPlanId]
+  extends ShopPlanMessages with Replyable[Boolean]
 
 case class ModifyShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan)
   extends ShopPlanMessages with Replyable[Boolean]

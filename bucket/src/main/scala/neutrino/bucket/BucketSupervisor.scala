@@ -1,6 +1,8 @@
 package neutrino.bucket
 
 import scala.concurrent.Future
+import scala.util.{Success, Failure}
+import scala.util.control.NonFatal
 
 import akka.actor.{Props, Actor, ActorLogging}
 import akka.pattern.pipe
@@ -52,8 +54,26 @@ class BucketSupervisor extends Actor with ActorLogging {
       bucketDatastore.getBucketStores(userId, fields) pipeTo sender()
 
 
-    case GetGivenBucketStores(userId, storeIds, fields) =>
-      bucketDatastore.getGivenBucketStores(userId, storeIds, fields) pipeTo sender()
+
+    case GetGivenBucketStores(userId, storeIds, fields, remove) =>
+      (for {
+        stores <- bucketDatastore.getGivenBucketStores(userId, storeIds, fields)
+        _      <- bucketDatastore.deleteBucketStores(userId, storeIds) if remove
+      } yield stores)
+        .andThen {
+          case Success(stores) if remove =>
+          case Failure(NonFatal(ex)) =>
+            log.error(ex, "Caught error {} while getting " +
+                          (if(remove) "and removing " else " ") +
+                          "bucket stores for " +
+                          "user id = {} and storeIds = [{}] and fields = [{}]",
+                          ex.getMessage,
+                          userId.uuid,
+                          storeIds.map(_.stuid).mkString(", "),
+                          fields.mkString(", "))
+
+        } pipeTo sender()
+
 
 
     case ModifyBucket(userId, cud) =>
@@ -61,8 +81,8 @@ class BucketSupervisor extends Actor with ActorLogging {
 
       val successOF =
         for {
-          storeIds <- cud.adds.map(_.map(_.storeId))
-          itemIds  <- cud.adds
+          storeIds <- cud.adds.map(_.map(_.storeId).distinct)
+          itemIds  <- cud.adds.map(_.distinct)
         } yield {
           // 1. Get details for stores and items from cassie
           val storesF = cassie.getStores(storeIds, Seq(Name, ItemTypes, Address, Avatar, Contacts))
@@ -86,6 +106,16 @@ class BucketSupervisor extends Actor with ActorLogging {
               }
 
               bucketDatastore.insertBucketStores(userId, bucketStores) // 4. insert stores and items into storage
+                .andThen {
+                  case Failure(NonFatal(ex)) =>
+                    log.error(ex, "Caught Error {} while inserting bucket stores for userId = {} and itemIds = [{}]",
+                                  ex.getMessage,
+                                  userId.uuid,
+                                  bucketStores
+                                    .flatMap(_.catalogueItems).flatMap(_.map(_.itemId))
+                                    .map(id => s"${id.storeId.stuid}.${id.cuid}").mkString(", ")
+                             )
+                }
             }
 
           successFF.as[Future[Future[Boolean]]].flatMap(identity)

@@ -2,10 +2,12 @@ package neutrino.shopplan
 
 import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration._
+import scala.util.{Success, Failure}
+import scala.util.control.NonFatal
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorRef, Props, ActorLogging}
 import akka.pattern.pipe
 import akka.util.Timeout
 
@@ -24,14 +26,14 @@ import neutrino.user.protocols._
 import neutrino.bucket.protocols._
 
 import com.google.maps.{GeocodingApi, GeoApiContext, PendingResult}
-import com.google.maps.model.{LatLng, AddressComponentType, GeocodingResult}
+import com.google.maps.model.{LatLng, AddressComponentType, GeocodingResult, AddressType}
 
 
 class ShopPlanner(
   shopplanId: ShopPlanId,
   shopplanDatastore: ShopPlanDatastore,
   _User  : ActorRef @@ UserActorRef,
-  _Bucket: ActorRef @@ BucketActorRef) extends Actor {
+  _Bucket: ActorRef @@ BucketActorRef) extends Actor with ActorLogging {
 
   private val settings = ShopPlanSettings(context.system)
 
@@ -95,6 +97,8 @@ class ShopPlanner(
       cud.destinations
          .flatMap(_.adds).getOrElse(Seq.empty[Destination])
          .filter(!_.address.gpsLoc.isEmpty)
+         .map(destination => // update the destinations with new shopplan id
+            destination.copy(destId = destination.destId.copy(shopplanId = shopplanId)))
 
 
     // 2. Resolve destinations' gps location to full address
@@ -126,8 +130,17 @@ class ShopPlanner(
 
     // 5. Persist ShopPlan to data store
     //    and return successF (Boolean)
-    shopplanF.flatMap(shopplanDatastore.addNewShopPlan(_)).map(_ => true) // [TO FIX] read result set from
-                                                                          // cassandra and then mark it true
+    shopplanF.flatMap(shopplanDatastore.addNewShopPlan(_))
+             .map(_ => true) // [TO FIX] read result set from
+                             // cassandra and then mark it true
+             .andThen {
+                case Failure(NonFatal(ex)) =>
+                  log.error(ex, "Caught error [{}] while adding new shop plan's info for " +
+                                "shopplan id = {} and createdBy = {}",
+                                ex.getMessage,
+                                shopplanId.suid,
+                                shopplanId.createdBy.uuid)
+             }
   }
 
 
@@ -183,7 +196,7 @@ class ShopPlanner(
     // [NOTE] It is assumed that all stores are from user's Bucket
     // therefore gettings stores complete information using Bucket
     // instead of Cassie
-    val bStoresF = Bucket ?= GetGivenBucketStores(userId, storeIds, fields)
+    val bStoresF = Bucket ?= GetGivenBucketStores(userId, storeIds, fields, remove = true)
 
     bStoresF map { bStores => // Convert Bucket store to ShopPlanStore with assigned
                               // nearest destination
@@ -213,6 +226,8 @@ class ShopPlanner(
   /**
    * Resolve the Lat Lng of address with complete address information
    * using google geo coding api
+   *
+   * [TO DO] Move this logic to Commons for universal conversion
    */
   private def resolveLatLng(address: PostalAddress) =
     address.gpsLoc.map { gpsLoc =>   // make sure address has gpsLoc
@@ -225,23 +240,47 @@ class ShopPlanner(
       request.setCallback(new PendingResult.Callback[Array[GeocodingResult]]() {
 
         override def onResult(result: Array[GeocodingResult]) {
-          // Fill the details into the oiginal address
-          val newAddress =
-            result(0).addressComponents.foldLeft(address) { (newAddress, component) =>
-              if(component.types.exists(_ == AddressComponentType.COUNTRY))
-                newAddress.copy(country = component.longName.some)
-              else if(component.types.exists(_ == AddressComponentType.ADMINISTRATIVE_AREA_LEVEL_2))
-                newAddress.copy(short = component.longName.some)
-              else if(component.types.exists(_ == AddressComponentType.ADMINISTRATIVE_AREA_LEVEL_1))
-                newAddress.copy(city = component.longName.some)
-              else if(component.types.exists(_ == AddressComponentType.POSTAL_CODE))
-                newAddress.copy(pincode = component.longName.some)
-              else if(component.types.exists(_ == AddressComponentType.LOCALITY))
-                newAddress.copy(title = component.longName.some)
-              else newAddress
+          result.find(_.types.exists(_ == AddressType.STREET_ADDRESS)).map { googleAddress =>
+            import AddressComponentType._
+            import googleAddress._
+
+            // Set country, city and postal code
+            var newAddress =
+              addressComponents.foldLeft(address) { (newAddress, component) =>
+                if(component.types.exists(_ == COUNTRY))
+                  newAddress.copy(country = component.longName.some)
+                else if(component.types.exists(_ == LOCALITY))
+                  newAddress.copy(city = component.longName.some)
+                else if(component.types.exists(_ == POSTAL_CODE))
+                  newAddress.copy(pincode = component.longName.some)
+                else newAddress
+              }
+
+            // set full address
+            newAddress = newAddress.copy(full = formattedAddress.some)
+
+            val levels = Array.ofDim[String](4)
+            addressComponents.foreach { component =>
+              if(component.types.exists(_ == ROUTE))
+                levels(0) = component.longName
+              else if(component.types.exists(_ == SUBLOCALITY_LEVEL_2))
+                levels(1) = component.longName
+              else if(component.types.exists(_ == SUBLOCALITY_LEVEL_1))
+                levels(2) = component.longName
+              else if(component.types.exists(_ == LOCALITY))
+                levels(3) = component.longName
             }
 
-          p success newAddress.copy(full = result(0).formattedAddress.some)
+            // set short address
+            newAddress = newAddress.copy(short = levels.mkString(", ").some)
+            // set title address
+            newAddress.copy(title = levels.take(3).mkString(", ").some)
+
+          } match {
+            case None => p failure (new Exception("No street address present in google"))
+            case Some(newAddress) => p success newAddress
+          }
+
         }
 
         override def onFailure(e: Throwable) {

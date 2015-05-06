@@ -66,7 +66,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
 
   val ShopPlan = system.actorOf(ShopPlanSupervisor.props(BucketActorRef(Bucket), UserActorRef(User)), "shopplan")
 
-  implicit val defaultTimeout = Timeout(1 seconds)
+  implicit val defaultTimeout = Timeout(10 seconds)
 
 
   ///////////////
@@ -238,7 +238,7 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
   def createShopPlan(userId: UserId, cud: CUDShopPlan) = {
     val shopplanIdF = ShopPlan ?= CreateShopPlan(userId, cud)
 
-    awaitResult(shopplanIdF, 500 milliseconds, {
+    awaitResult(shopplanIdF, 5 seconds, {
       case NonFatal(ex) =>
         val statement = s"Error while creating shop plan for " +
                         s"user id = ${userId.uuid}"

@@ -58,7 +58,7 @@ class BucketStores(val settings: BucketSettings)
     val addressO   = Common.address(gpsLoc, addressTitle(row), addressShort(row), addressFull(row), pincode(row), country(row), city(row))
     val nameO      = Common.storeName(fullname(row), handle(row))
     val avatarO    = Common.storeAvatar(small(row), medium(row), large(row))
-    val phoneO     = Common.phoneContact(phoneNums(row).toSeq)
+    val phoneO     = None // Common.phoneContact(phoneNums(row).toSeq)
     val itemTypesO = itemTypes(row).flatMap(ItemType.valueOf(_)).toSeq.some
 
     BucketStore(
@@ -136,6 +136,13 @@ class BucketStores(val settings: BucketSettings)
     select.where(_.uuid eqs userId.uuid)
           .and(  _.stuid in storeIds.map(_.stuid).toList)
   }
+
+
+  def deleteBucketStoreBy(userId: UserId, storeId: StoreId) =
+    delete
+      .where(_.uuid  eqs userId.uuid)
+      .and(  _.stuid eqs storeId.stuid)
+
 
   ////////////////////////////// Private methods ///////////////////////////////
 

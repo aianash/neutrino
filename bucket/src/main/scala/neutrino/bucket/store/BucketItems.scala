@@ -2,9 +2,6 @@ package neutrino.bucket.store
 
 import java.nio.ByteBuffer
 
-import com.goshoplane.common._
-import com.goshoplane.neutrino.shopplan._
-
 import scalaz._, Scalaz._
 import scalaz.std.option._
 import scalaz.syntax.monad._
@@ -14,11 +11,11 @@ import com.goshoplane.neutrino.service._
 import com.goshoplane.neutrino.shopplan._
 
 import com.websudos.phantom.Implicits.{context => _, _} // donot import execution context
-
-import neutrino.bucket.BucketSettings
 import com.websudos.phantom.query.SelectQuery
 
 import com.datastax.driver.core.querybuilder.QueryBuilder
+
+import neutrino.bucket.BucketSettings
 
 import goshoplane.commons.core.factories._
 
@@ -130,29 +127,26 @@ class BucketItems(val settings: BucketSettings)
     val batch = BatchStatement()
 
     stores.foreach { store =>
-      val partialQ =
-        insert
-          .value(_.uuid,          userId.uuid)
-          .value(_.storeType,     store.storeType.name)
-          .value(_.fullname,      store.info.name.flatMap(_.full))
-          .value(_.handle,        store.info.name.flatMap(_.handle))
-          .value(_.itemTypes,     store.info.itemTypes.map(_.map(_.name).toSet).getOrElse(Set.empty[String]))
-          .value(_.lat,           store.info.address.flatMap(_.gpsLoc.map(_.lat)))
-          .value(_.lng,           store.info.address.flatMap(_.gpsLoc.map(_.lng)))
-          .value(_.addressTitle,  store.info.address.flatMap(_.title))
-          .value(_.addressShort,  store.info.address.flatMap(_.short))
-          .value(_.addressFull,   store.info.address.flatMap(_.full))
-          .value(_.pincode,       store.info.address.flatMap(_.pincode))
-          .value(_.country,       store.info.address.flatMap(_.country))
-          .value(_.city,          store.info.address.flatMap(_.city))
-          .value(_.small,         store.info.avatar.flatMap(_.small))
-          .value(_.medium,        store.info.avatar.flatMap(_.medium))
-          .value(_.large,         store.info.avatar.flatMap(_.large))
-          .value(_.email,         store.info.email)
-
       store.catalogueItems.toSeq.flatten foreach { item =>
         val insertQ =
-          partialQ
+          insert
+            .value(_.uuid,          userId.uuid)
+            .value(_.storeType,     store.storeType.name)
+            .value(_.fullname,      store.info.name.flatMap(_.full))
+            .value(_.handle,        store.info.name.flatMap(_.handle))
+            .value(_.itemTypes,     store.info.itemTypes.map(_.map(_.name).toSet).getOrElse(Set.empty[String]))
+            .value(_.lat,           store.info.address.flatMap(_.gpsLoc.map(_.lat)))
+            .value(_.lng,           store.info.address.flatMap(_.gpsLoc.map(_.lng)))
+            .value(_.addressTitle,  store.info.address.flatMap(_.title))
+            .value(_.addressShort,  store.info.address.flatMap(_.short))
+            .value(_.addressFull,   store.info.address.flatMap(_.full))
+            .value(_.pincode,       store.info.address.flatMap(_.pincode))
+            .value(_.country,       store.info.address.flatMap(_.country))
+            .value(_.city,          store.info.address.flatMap(_.city))
+            .value(_.small,         store.info.avatar.flatMap(_.small))
+            .value(_.medium,        store.info.avatar.flatMap(_.medium))
+            .value(_.large,         store.info.avatar.flatMap(_.large))
+            .value(_.email,         store.info.email)
             .value(_.stuid,     item.itemId.storeId.stuid)
             .value(_.cuid,      item.itemId.cuid)
             .value(_.versionId, item.versionId)
@@ -176,15 +170,21 @@ class BucketItems(val settings: BucketSettings)
   }
 
 
-  def getBucketItemsBy(userId: UserId, storeIds: Seq[StoreId], fields: Seq[BucketStoreField]) = {
+  def getBucketItemsBy(userId: UserId, storeId: StoreId, fields: Seq[BucketStoreField]) = {
     val selectors = fieldToSelectors(fields)
 
     val select =
       new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow(fields))
 
-    select.where(_.uuid eqs userId.uuid)
-          .and(  _.stuid in storeIds.map(_.stuid).toList)
+    select.where(_.uuid  eqs userId.uuid)
+          .and(  _.stuid eqs storeId.stuid)
   }
+
+
+  def deleteBucketItemsBy(userId: UserId, storeId: StoreId) =
+    delete
+      .where(_.uuid  eqs userId.uuid)
+      .and(  _.stuid eqs storeId.stuid)
 
 
   ////////////////////////////// Private methods ///////////////////////////////

@@ -13,7 +13,7 @@ sealed trait BucketMessages
 case class GetBucketStores(userId: UserId, fields: Seq[BucketStoreField])
   extends BucketMessages with Replyable[Seq[BucketStore]]
 
-case class GetGivenBucketStores(userId: UserId, storeIds: Seq[StoreId], fields: Seq[BucketStoreField])
+case class GetGivenBucketStores(userId: UserId, storeIds: Seq[StoreId], fields: Seq[BucketStoreField], remove: Boolean = false)
   extends BucketMessages with Replyable[Seq[BucketStore]]
 
 case class ModifyBucket(userId: UserId, cud: CUDBucket)

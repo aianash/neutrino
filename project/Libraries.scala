@@ -47,6 +47,7 @@ trait Libraries {
     val phantom         = "1.5.0"
     val play            = "2.3.8"
     val googleMaps      = "0.1.6"
+    val lapse           = "0.1.0"
     val researchpaperParser = "1.0"
     val catalogueCommons    = "0.0.1"
   }
@@ -54,6 +55,10 @@ trait Libraries {
 
 
   object Libs {
+
+    val lapse = Seq(
+      "me.lessis" %% "lapse" % Version.lapse)
+
 
     val googleMaps = Seq(
       "com.google.maps" % "google-maps-services" % Version.googleMaps)
