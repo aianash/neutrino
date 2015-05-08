@@ -295,7 +295,11 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
         grpdItems <- grpdItemsF
       } yield
         stores.map(store =>
-          store.copy(catalogueItems = grpdItems.get(store.storeId.stuid)))
+          store.copy(
+            catalogueItems = grpdItems.get(store.storeId.stuid),
+            itemIds        = grpdItems.get(store.storeId.stuid).map(_.map(_.itemId))
+          )
+        )
 
     } else storesF
 
@@ -309,8 +313,8 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
     import ShopPlanStoreField._
 
     var storeFields = Seq(Name, Address, Avatar, ItemTypes, Contacts)
-    if(fields.contains(CatalogueItems))    storeFields = storeFields :+ CatalogueItems
-    if(fields.contains(CatalogueItemIds))  storeFields = storeFields :+ CatalogueItemIds
+    if(fields.contains(ShopPlanField.CatalogueItems))    storeFields = storeFields :+ CatalogueItems
+    if(fields.contains(ShopPlanField.CatalogueItemIds))  storeFields = storeFields :+ CatalogueItemIds
     storeFields
   }
 

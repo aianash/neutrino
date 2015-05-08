@@ -145,7 +145,7 @@ object TestNeutrinoClient {
 
       println("stores =")
       shopplan.stores.foreach { stores =>
-        stores.foreach(printStore(_))
+        stores.foreach { x => println("\nShopPlan Store ="); printStore(x) }
       }
     }
 
@@ -267,7 +267,7 @@ object TestNeutrinoClient {
               }
 
               val oelapsed = lapse.Stopwatch.start()
-              Neutrino.getOwnShopPlans(userId, Seq(Title, Stores, Destinations, Invites)) foreach { shopPlans =>
+              Neutrino.getOwnShopPlans(userId, Seq(Title, Stores, Destinations, Invites, CatalogueItemIds)) foreach { shopPlans =>
                 apiLatencies.put("Got own shop plans in = ", oelapsed())
                 println(s"\n\nGot own shop plans in ${oelapsed()} and shop plans are = ")
                 shopPlans.foreach(ShopPlanUtils.print(_))

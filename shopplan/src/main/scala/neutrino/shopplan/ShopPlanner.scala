@@ -213,7 +213,8 @@ class ShopPlanner(
             destId         = nearestDestination(gpsLoc), // assign nearest destination
             storeType      = bStore.storeType,
             info           = bStore.info,
-            catalogueItems = itemsO
+            catalogueItems = itemsO,
+            itemIds        = itemsO.map(_.map(_.itemId))
           )
         }
       }
