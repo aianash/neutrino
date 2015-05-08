@@ -9,8 +9,7 @@ import goshoplane.commons.core.protocols.Replyable
 
 sealed trait UserAccountMessages
 
-case class IsExistingFBUser(fbuid: UserId) extends UserAccountMessages with Replyable[Option[UserId]]
-case class CreateUser(userInfo: UserInfo) extends UserAccountMessages with Replyable[UserId]
+case class CreateOrUpdateUser(userInfo: UserInfo) extends UserAccountMessages with Replyable[UserId]
 case class UpdateUser(userId: UserId, userInfo: UserInfo) extends UserAccountMessages with Replyable[Boolean]
 case class GetUserDetail(userId: UserId) extends UserAccountMessages with Replyable[UserInfo]
 case class GetFriendsForInvite(userId: UserId, filter: FriendListFilter) extends UserAccountMessages with Replyable[Seq[Friend]]

@@ -73,26 +73,30 @@ class NeutrinoService(implicit inj: Injector) extends Neutrino[TwitterFuture] {
   // User APIs //
   ///////////////
 
-  def createUser(userInfo: UserInfo) =
-    userInfo.facebookInfo.map { facebookInfo =>
-      val userIdF =
-        (User ?= IsExistingFBUser(facebookInfo.userId)).flatMap { userIdO =>
-          userIdO match {
-            case Some(userId) => (User ?= UpdateUser(userId, userInfo)).map(_ => userId)
-            case None         =>  User ?= CreateUser(userInfo)
-          }
-        }
+  def createUser(userInfo: UserInfo) = {
+    val userIdF = User ?= CreateOrUpdateUser(userInfo)
+    log.info("Its the new one")
+    awaitResult(userIdF, 500 milliseconds, {
+      case NonFatal(ex) =>
+        val statement = s"Error while creating/updating user for "// +
+                        // s"facebook user id = ${facebookInfo.userId.uuid}"
 
-      awaitResult(userIdF, 500 milliseconds, {
-        case NonFatal(ex) =>
-          val statement = s"Error while creating/updating user for " +
-                          s"facebook user id = ${facebookInfo.userId.uuid}"
+        log.error(ex, statement)
+        TFailure(NeutrinoException(statement))
+    })
 
-          log.error(ex, statement)
-          TFailure(NeutrinoException(statement))
-      })
+  }
+    // userInfo.facebookInfo.map { facebookInfo =>
+    //   val userIdF =
+    //     (User ?= IsExistingFBUser(facebookInfo.userId)).flatMap { userIdO =>
+    //       userIdO match {
+    //         case Some(userId) => (User ?= UpdateUser(userId, userInfo)).map(_ => userId)
+    //         case None         =>  User ?= CreateUser(userInfo)
+    //       }
+    //     }
 
-    } getOrElse TwitterFuture.exception(NeutrinoException("Facebook info should be provided"))
+
+    // } getOrElse TwitterFuture.exception(NeutrinoException("Facebook info should be provided"))
 
 
 

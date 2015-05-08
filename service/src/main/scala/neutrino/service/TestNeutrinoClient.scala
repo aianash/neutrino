@@ -31,7 +31,7 @@ object TestNeutrinoClient {
     val name         = UserName(first = "Kumar".some, last = "Ishan".some, handle = "kumarishan".some)
     val locale       = Locale.EnUs
     val gender       = Gender.Male
-    val fbuid        = 1028289992829L
+    val fbuid        = 1028289992817277L
     val facebookInfo = FacebookInfo(userId = UserId(fbuid), token = "KSJD03039JKSJKSJKLS0P2".some)
     val email        = "kumar.ishan89@gmail.com"
     val timezone     = "Asia/Kolkata"
@@ -210,7 +210,7 @@ object TestNeutrinoClient {
     val aelapsed = lapse.Stopwatch.start()
     Neutrino.createUser(User.info) foreach { userId =>
       apiLatencies.put("Create user in = ", aelapsed())
-      println(s"\n\nCreated user in ${aelapsed()}")
+      println(s"\n\nCreated user ${userId.uuid} in ${aelapsed()}")
 
       val belapsed = lapse.Stopwatch.start()
       Neutrino.search(Search.searchRequest(userId)).foreach { response =>

@@ -94,6 +94,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.slf4j
       ++ Libs.logback
       ++ Libs.phantom
+      ++ Libs.lapse
   ).dependsOn(core)
 
 

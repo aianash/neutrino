@@ -31,7 +31,7 @@ class UserByFBUID(val settings: UserSettings)
     (UserId(uuid(row)), FacebookInfo(userId = UserId(fbuid(row)), token = fbtoken(row)))
 
 
-  def insertUserInfo(userId: UserId, info: FacebookInfo) =
+  def insertFacebookInfo(userId: UserId, info: FacebookInfo) =
     insert
       .value(_.fbuid,         info.userId.uuid)
       .value(_.uuid,          userId.uuid)
@@ -39,5 +39,18 @@ class UserByFBUID(val settings: UserSettings)
 
 
   def getUserIdBy(fbUserId: UserId) = select.where(_.fbuid eqs fbUserId.uuid)
+
+
+  def updateFacebookInfo(userId: UserId, info: FacebookInfo) = {
+    var updateQ =
+      update.where( _.fbuid eqs info.userId.uuid)
+            .modify(_.uuid setTo userId.uuid)
+
+    info.token.foreach { token =>
+      updateQ = updateQ.and(_.fbtoken setTo token.some)
+    }
+
+    updateQ
+  }
 
 }
