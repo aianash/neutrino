@@ -24,4 +24,6 @@ addSbtPlugin("com.twitter" %% "scrooge-sbt-plugin" % "3.15.0")
 
 addSbtPlugin("me.lessis" % "ls-sbt" % "0.1.3")
 
+addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.0.2")
+
 scalaVersion := "2.10.4"
