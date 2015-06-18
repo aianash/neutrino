@@ -4,6 +4,7 @@ import scala.concurrent.{Future, Promise}
 import scala.concurrent.duration._
 import scala.util.{Success, Failure}
 import scala.util.control.NonFatal
+import scala.collection.mutable.{HashMap => MutableHashMap}
 
 import java.util.concurrent.TimeUnit
 
@@ -104,12 +105,13 @@ class ShopPlanner(
     // 2. Resolve destinations' gps location to full address
     val destinationsF = resolveDestinations(destinations)
 
+    val destinationNumShops = MutableHashMap.empty[DestinationId, Int]
 
     // 3. Convert itemIds to ShopPlanStores with items
     //    with nearest destinations assigned
     val storesF =
       cud.items.flatMap(_.adds)
-         .map(makeShopPlanStores(shopplanId.createdBy, _, destinations))
+         .map(makeShopPlanStores(shopplanId.createdBy, _, destinations, destinationNumShops))
          .getOrElse(Future.successful(Seq.empty[ShopPlanStore]))
 
 
@@ -123,7 +125,7 @@ class ShopPlanner(
                 shopplanId    = shopplanId,
                 title         = cud.meta.flatMap(_.title),
                 stores        = stores.some,
-                destinations  = destinations.some,
+                destinations  = destinations.map(d => d.copy(numShops = destinationNumShops.get(d.destId))).some,
                 invites       = invites.some,
                 isInvitation  = false
               )
@@ -179,7 +181,12 @@ class ShopPlanner(
    * Create ShopPlanStores from itemIds using Bucket Stores for user
    * Also shop plan stores are assigned destination based on nearness
    */
-  def makeShopPlanStores(userId: UserId, itemIds: Seq[CatalogueItemId], destinations: Seq[Destination]) = {
+  def makeShopPlanStores(
+    userId: UserId,
+    itemIds: Seq[CatalogueItemId],
+    destinations: Seq[Destination],
+    destinationNumShops: MutableHashMap[DestinationId, Int]) = {
+
     import BucketStoreField._
 
     implicit val timeout = Timeout(1 seconds) // used for all ask request
@@ -208,9 +215,12 @@ class ShopPlanner(
           val itemsO =
             bStore.catalogueItems.map(_.filter(ser => cuids.contains(ser.itemId.cuid)))
 
+          val destId = nearestDestination(gpsLoc) // get nearest destination
+          destinationNumShops.put(destId, destinationNumShops.getOrElse(destId, 0) + 1)
+
           ShopPlanStore(
             storeId        = bStore.storeId,
-            destId         = nearestDestination(gpsLoc), // assign nearest destination
+            destId         = destId,
             storeType      = bStore.storeType,
             info           = bStore.info,
             catalogueItems = itemsO,
