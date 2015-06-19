@@ -72,4 +72,11 @@ class UserFriends(val settings: UserSettings)
 
 
   def getFriendsBy(userId: UserId) = select.where(_.uuid eqs userId.uuid)
+
+
+  def getFriendsBy(userId: UserId, friendIds: Seq[UserId]) =
+    select.where(_.uuid eqs userId.uuid)
+          .and(  _.fruid in friendIds.map(_.uuid).toList)
+
+
 }

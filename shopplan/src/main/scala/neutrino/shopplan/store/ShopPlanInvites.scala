@@ -27,7 +27,7 @@ class ShopPlanInvites(val settings: ShopPlanSettings)
   // ids
   object uuid extends LongColumn(this) with PartitionKey[Long]
   object suid extends LongColumn(this) with PrimaryKey[Long] with ClusteringOrder[Long] with Ascending
-  object fruid extends LongColumn(this) with PrimaryKey[Long]
+  object fruid extends LongColumn(this) with PrimaryKey[Long] with ClusteringOrder[Long] with Ascending
 
   // name
   object firstname extends OptionalStringColumn(this)

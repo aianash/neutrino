@@ -21,6 +21,8 @@ import com.datastax.driver.core.querybuilder.QueryBuilder
 
 import play.api.libs.json._
 
+import goshoplane.commons.core.factories._
+
 
 class ShopPlanStores(val settings: ShopPlanSettings)
   extends CassandraTable[ShopPlanStores, ShopPlanStore] with  ShopPlanConnector {
@@ -30,8 +32,9 @@ class ShopPlanStores(val settings: ShopPlanSettings)
   // ids
   object uuid extends LongColumn(this) with PartitionKey[Long]
   object suid extends LongColumn(this) with PrimaryKey[Long] with ClusteringOrder[Long] with Ascending
-  object stuid extends LongColumn(this) with PrimaryKey[Long]
+  object stuid extends LongColumn(this) with PrimaryKey[Long] with ClusteringOrder[Long] with Ascending
 
+  object storeType extends StringColumn(this)
   object dtuid extends LongColumn(this)
 
   // name
@@ -51,27 +54,27 @@ class ShopPlanStores(val settings: ShopPlanSettings)
   // item types
   object itemTypes extends SetColumn[ShopPlanStores, ShopPlanStore, String](this)
 
-  // catalogue item details
-  object catalogueItems extends CatalogueItemsJsonSetColumn[ShopPlanStores, ShopPlanStore](this)
+  // avatar
+  object small extends OptionalStringColumn(this)
+  object medium extends OptionalStringColumn(this)
+  object large extends OptionalStringColumn(this)
 
+  object email extends OptionalStringColumn(this)
+  object phoneNums extends SetColumn[ShopPlanStores, ShopPlanStore, String](this)
 
+  // cuids of the shopplan stores' items
+  object cuids extends SetColumn[ShopPlanStores, ShopPlanStore, Long](this)
 
   override def fromRow(row: Row) = {
 
-    // creating address
-    val gpsLoc = for(lat <- lat(row); lng <- lng(row)) yield GPSLocation(lat, lng)
-    var addressO = gpsLoc.map(v => PostalAddress(gpsLoc = v.some))
-    addressO = addressTitle(row).map {t => addressO.getOrElse(PostalAddress()).copy(title   =  t.some) }
-    addressO = addressShort(row).map {s => addressO.getOrElse(PostalAddress()).copy(short   =  s.some) }
-    addressO = addressFull(row) .map {f => addressO.getOrElse(PostalAddress()).copy(full    =  f.some) }
-    addressO = pincode(row)     .map {p => addressO.getOrElse(PostalAddress()).copy(pincode =  p.some) }
-    addressO = country(row)     .map {c => addressO.getOrElse(PostalAddress()).copy(country =  c.some) }
-    addressO = city(row)        .map {c => addressO.getOrElse(PostalAddress()).copy(city    =  c.some) }
-
-    var storeNameO = StoreName().some
-    storeNameO = fullname(row).flatMap(f => storeNameO.map(_.copy(full = f.some)))
-    storeNameO = handle(row)  .flatMap(h => storeNameO.map(_.copy(handle = h.some)))
-
+    val storeId       = StoreId(stuid = stuid(row))
+    val gpsLoc        = for(lat <- lat(row); lng <- lng(row)) yield GPSLocation(lat, lng)
+    val addressO      = Common.address(gpsLoc, addressTitle(row), addressShort(row), addressFull(row), pincode(row), country(row), city(row))
+    val nameO         = Common.storeName(fullname(row), handle(row))
+    val avatarO       = Common.storeAvatar(small(row), medium(row), large(row))
+    val phoneO        = Common.phoneContact(phoneNums(row).toSeq)
+    val itemTypesO    = itemTypes(row).flatMap(ItemType.valueOf(_)).toSeq.some
+    val itemIds       = cuids.optional(row).map(_.map(cuid => CatalogueItemId(storeId = storeId, cuid = cuid)).toSeq)
     val destinationId =
       DestinationId(
         shopplanId = ShopPlanId(suid = suid(row), createdBy = UserId(uuid = uuid(row))),
@@ -79,14 +82,52 @@ class ShopPlanStores(val settings: ShopPlanSettings)
       )
 
     ShopPlanStore(
-      storeId        = StoreId(stuid = stuid(row)),
-      destId         = destinationId,
-      name           = storeNameO,
-      address        = addressO,
-      itemTypes      = itemTypes(row).flatMap(name => ItemType.valueOf(name)).some,
-      catalogueItems = catalogueItems(row).some
+      storeId   = storeId,
+      destId    = destinationId,
+      storeType = StoreType.valueOf(storeType(row)).getOrElse(StoreType.Unknown),
+      info      = Common.storeInfo(nameO, itemTypesO, addressO, avatarO, email(row), phoneO).getOrElse(StoreInfo()),
+      itemIds   = itemIds
     )
 
+  }
+
+
+  def fromRow(fields: Seq[ShopPlanStoreField])(row: Row) = {
+    import ShopPlanStoreField._
+
+    val info =
+      fields.foldLeft(StoreInfo()) { (info, field) =>
+        field match {
+          case Name            => info.copy(name      = Common.storeName(fullname(row), handle(row)))
+          case ItemTypes       => info.copy(itemTypes = itemTypes(row).flatMap(ItemType.valueOf(_)).toSeq.some)
+          case Avatar          => info.copy(avatar    = Common.storeAvatar(small(row), medium(row), large(row)))
+          case Contacts        => info.copy(phone     = Common.phoneContact(phoneNums(row).toSeq), email = email(row))
+          case Address         =>
+            val gpsLoc = for(lat <- lat(row); lng <- lng(row)) yield GPSLocation(lat, lng)
+            info.copy(address = Common.address(gpsLoc, addressTitle(row), addressShort(row), addressFull(row), pincode(row), country(row), city(row)))
+          case _               => info
+        }
+      }
+
+    val destinationId =
+      DestinationId(
+        shopplanId = ShopPlanId(suid = suid(row), createdBy = UserId(uuid = uuid(row))),
+        dtuid      = dtuid(row)
+      )
+
+    val storeId = StoreId(stuid = stuid(row))
+
+    val itemIds = fields.find(_ == CatalogueItemIds).map { _ =>
+      cuids(row).map(cuid => CatalogueItemId(storeId = storeId, cuid = cuid)).toSeq
+    }
+
+    ShopPlanStore(
+      storeId   = storeId,
+      destId    = destinationId,
+      storeType = StoreType.valueOf(storeType(row)).getOrElse(StoreType.Unknown),
+      info      = info,
+      itemIds   = itemIds
+    )
   }
 
 
@@ -95,21 +136,29 @@ class ShopPlanStores(val settings: ShopPlanSettings)
    */
   def insertStore(store: ShopPlanStore) =
     insert
-      .value(_.uuid,            store.destId.shopplanId.createdBy.uuid)
-      .value(_.suid,            store.destId.shopplanId.suid)
-      .value(_.stuid,           store.storeId.stuid)
-      .value(_.dtuid,           store.destId.dtuid)
-      .value(_.fullname,        store.name.flatMap(_.full))
-      .value(_.handle,          store.name.flatMap(_.handle))
-      .value(_.lat,             store.address.flatMap(_.gpsLoc.map(_.lat)))
-      .value(_.lng,             store.address.flatMap(_.gpsLoc.map(_.lng)))
-      .value(_.addressTitle,    store.address.flatMap(_.title))
-      .value(_.addressShort,    store.address.flatMap(_.short))
-      .value(_.pincode,         store.address.flatMap(_.pincode))
-      .value(_.country,         store.address.flatMap(_.country))
-      .value(_.city,            store.address.flatMap(_.city))
-      .value(_.itemTypes,       store.itemTypes.map(_.map(_.name).toSet).getOrElse(Set.empty[String])) // [IMP] Check it camel case only
-      .value(_.catalogueItems,  store.catalogueItems.map(_.toSet).getOrElse(Set.empty[SerializedCatalogueItem]))
+      .value(_.uuid,          store.destId.shopplanId.createdBy.uuid)
+      .value(_.suid,          store.destId.shopplanId.suid)
+      .value(_.stuid,         store.storeId.stuid)
+      .value(_.storeType,     store.storeType.name)
+      .value(_.dtuid,         store.destId.dtuid)
+      .value(_.fullname,      store.info.name.flatMap(_.full))
+      .value(_.handle,        store.info.name.flatMap(_.handle))
+      .value(_.itemTypes,     store.info.itemTypes.map(_.map(_.name).toSet).getOrElse(Set.empty[String]))
+      .value(_.lat,           store.info.address.flatMap(_.gpsLoc.map(_.lat)))
+      .value(_.lng,           store.info.address.flatMap(_.gpsLoc.map(_.lng)))
+      .value(_.addressTitle,  store.info.address.flatMap(_.title))
+      .value(_.addressShort,  store.info.address.flatMap(_.short))
+      .value(_.addressFull,   store.info.address.flatMap(_.full))
+      .value(_.pincode,       store.info.address.flatMap(_.pincode))
+      .value(_.country,       store.info.address.flatMap(_.country))
+      .value(_.city,          store.info.address.flatMap(_.city))
+      .value(_.small,         store.info.avatar.flatMap(_.small))
+      .value(_.medium,        store.info.avatar.flatMap(_.medium))
+      .value(_.large,         store.info.avatar.flatMap(_.large))
+      .value(_.email,         store.info.email)
+      .value(_.phoneNums,     store.info.phone.map(_.numbers.toSet).getOrElse(Set.empty[String]))
+      .value(_.cuids,         store.itemIds.map(_.map(_.cuid).toSet).getOrElse(Set.empty[Long]))
+
 
 
   /**
@@ -119,7 +168,7 @@ class ShopPlanStores(val settings: ShopPlanSettings)
     val selectors = fieldToSelectors(fields)
 
     val select =
-      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow)
+      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow(fields))
 
     select.where(_.uuid eqs userId.uuid)
   }
@@ -132,7 +181,7 @@ class ShopPlanStores(val settings: ShopPlanSettings)
     val selectors = fieldToSelectors(fields)
 
     val select =
-      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow)
+      new SelectQuery(this, QueryBuilder.select(selectors: _*).from(tableName), fromRow(fields))
 
     select.where(_.uuid eqs shopplanId.createdBy.uuid)
           .and(  _.suid eqs shopplanId.suid)
@@ -160,14 +209,18 @@ class ShopPlanStores(val settings: ShopPlanSettings)
   //////////////////////////// Private methods ////////////////////////////
 
 
+  import ShopPlanStoreField._
+
   private def fieldToSelectors(fields: Seq[ShopPlanStoreField]) = {
     fields.flatMap {
-      case ShopPlanStoreField.Name            => Seq("fullname", "handle")
-      case ShopPlanStoreField.Address         => Seq("lat", "lng", "addressTitle", "addressShort", "pincode", "country", "city")
-      case ShopPlanStoreField.ItemTypes       => Seq("itemTypes")
-      case ShopPlanStoreField.CatalogueItems  => Seq("catalogueItems")
-      case _                                  => Seq.empty[String]
-    } ++ Seq("uuid", "stuid", "suid", "dtuid")
+      case Name               => Seq("fullname", "handle")
+      case Address            => Seq("lat", "lng", "addressTitle", "addressShort", "addressFull", "pincode", "country", "city")
+      case ItemTypes          => Seq("itemTypes")
+      case Avatar             => Seq("small", "medium", "large")
+      case Contacts           => Seq("email", "phoneNums")
+      case CatalogueItemIds   => Seq("cuids")
+      case _                  => Seq.empty[String]
+    } ++ Seq("uuid", "stuid", "suid", "storeType", "dtuid")
   }
 
 }

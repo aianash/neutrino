@@ -2,6 +2,7 @@ package neutrino.shopplan
 
 import scala.concurrent._, duration._
 import scala.util.control.NonFatal
+import scala.util.Failure
 
 import akka.actor.{Actor, ActorLogging, Props, ActorRef}
 import akka.actor.{PoisonPill, Terminated}
@@ -10,17 +11,21 @@ import akka.pattern.pipe
 
 import com.goshoplane.neutrino.shopplan._
 
-import neutrino.core.protocols._
-import neutrino.core.services._
+import goshoplane.commons.core.protocols._, Implicits._
+import goshoplane.commons.core.services._
+
+import neutrino.core._
 import neutrino.shopplan.store._
 
-import scalaz._
+import scalaz._, Scalaz._
 
 /**
  * Supervises lifecycle of ShopPlanner instances and other adjacent services like
- * - UUID generator
  */
-class ShopPlanSupervisor extends Actor with ActorLogging {
+class ShopPlanSupervisor(
+  _Bucket: ActorRef @@ BucketActorRef,
+  _User  : ActorRef @@ UserActorRef) extends Actor with ActorLogging {
+
 
   private val settings = ShopPlanSettings(context.system)
 
@@ -28,8 +33,18 @@ class ShopPlanSupervisor extends Actor with ActorLogging {
   import context.dispatcher
   import settings._
 
-  private val UUID = context.actorOf(UUIDGenerator.props(ServiceId, DatacenterId))
+  private val UUID   = context.actorOf(UUIDGenerator.props(ServiceId, DatacenterId))
+  private val Bucket = Tag.unwrap(_Bucket)
+  private val User   = Tag.unwrap(_User)
+
+
+  // Watching these actors for any termination.
+  // This supervisor is heavily dependent
+  // on these actors for most of its operations.
   context watch UUID
+  context watch Bucket
+  context watch User
+
 
   // [TO IMPROVE] In order to throttle read and write requests for ShopPlan related data
   // we could create separate endpoints for write(persister) and read(retriever)
@@ -50,7 +65,7 @@ class ShopPlanSupervisor extends Actor with ActorLogging {
 
 
     case GetShopPlan(shopplanId, fields) =>
-      shopplanDatastore.getShopPlan(shopplanId, fields) pipeTo sender()
+      shopplanDatastore.getShopPlan(shopplanId, fields).map(_.get) pipeTo sender()
 
 
 
@@ -60,16 +75,23 @@ class ShopPlanSupervisor extends Actor with ActorLogging {
 
 
     case CreateShopPlan(userId, cud) =>
-      implicit val timeout = Timeout(1 seconds)
+      implicit val timeout = Timeout(5 seconds)
 
       val shopplanIdF =
         for {
-          suid        <- UUID ?= NextId("shopplan")
+          suid        <- (UUID ?= NextId("shopplan")).map(_.get)
           shopplanId  <- Future.successful(ShopPlanId(suid = suid, createdBy = userId))
           _           <- getOrCreateShopPlanner(shopplanId) ?= AddNewShopPlan(shopplanId, cud)
         } yield shopplanId
 
-      shopplanIdF pipeTo sender()
+      shopplanIdF
+      .andThen {
+        case Failure(NonFatal(ex)) =>
+          log.error(ex, "Caught error = {} while creating shop plan for user id = {}",
+                        ex.getMessage,
+                        userId.uuid)
+
+      } pipeTo sender()
 
 
 
@@ -100,11 +122,11 @@ class ShopPlanSupervisor extends Actor with ActorLogging {
   }
 
 
-  private def getOrCreateShopPlanner(id: ShopPlanId) = {
-    val name = ShopPlanner.actorNameFor(id)
+  private def getOrCreateShopPlanner(shopplanId: ShopPlanId) = {
+    val name = ShopPlanner.actorNameFor(shopplanId)
 
     context.child(name) getOrElse {
-      val planner = context.actorOf(ShopPlanner.props(shopplanDatastore), name)
+      val planner = context.actorOf(ShopPlanner.props(shopplanId, shopplanDatastore, _User, _Bucket), name)
       context watch planner
       planner
     }
@@ -115,5 +137,7 @@ class ShopPlanSupervisor extends Actor with ActorLogging {
 
 
 object ShopPlanSupervisor {
-  def props = Props(new ShopPlanSupervisor)
+  def props(bucket: ActorRef @@ BucketActorRef,
+            user  : ActorRef @@ UserActorRef) =
+    Props(classOf[ShopPlanSupervisor], bucket, user)
 }

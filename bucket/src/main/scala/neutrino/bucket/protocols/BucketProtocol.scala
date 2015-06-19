@@ -4,11 +4,16 @@ import com.goshoplane.common._
 import com.goshoplane.neutrino.shopplan._
 import com.goshoplane.neutrino.service._
 
-import neutrino.core.protocols.Replyable
+import goshoplane.commons.core.protocols.Replyable
+
+
 
 sealed trait BucketMessages
 
 case class GetBucketStores(userId: UserId, fields: Seq[BucketStoreField])
+  extends BucketMessages with Replyable[Seq[BucketStore]]
+
+case class GetGivenBucketStores(userId: UserId, storeIds: Seq[StoreId], fields: Seq[BucketStoreField], remove: Boolean = false)
   extends BucketMessages with Replyable[Seq[BucketStore]]
 
 case class ModifyBucket(userId: UserId, cud: CUDBucket)

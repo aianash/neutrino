@@ -4,15 +4,20 @@ import Keys._
 
 import com.typesafe.sbt.SbtMultiJvm
 import com.typesafe.sbt.SbtMultiJvm.MultiJvmKeys.{ MultiJvm, extraOptions, jvmOptions, scalatestOptions, multiNodeExecuteTests, multiNodeJavaName, multiNodeHostsFileName, multiNodeTargetDirName, multiTestOptions }
+import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
 
 import com.typesafe.sbt.SbtScalariform
 import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 
-import com.typesafe.sbt.SbtStartScript
+// import com.typesafe.sbt.SbtStartScript
 
 import sbtassembly.AssemblyPlugin.autoImport._
 
 import com.twitter.scrooge.ScroogeSBT
+
+import com.typesafe.sbt.SbtNativePackager._, autoImport._
+import com.typesafe.sbt.packager.Keys._
+import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd, CmdLike}
 
 object NeutrinoBuild extends Build with Libraries {
 
@@ -53,9 +58,7 @@ object NeutrinoBuild extends Build with Libraries {
     settings = Project.defaultSettings ++
       sharedSettings
   ).settings(
-    libraryDependencies ++= Seq(
-    ) ++ Libs.akka
-  ) aggregate (core, user, bucket, feed, shopplan, service)
+  ) aggregate (core, user, bucket, feed, shopplan, search, service)
 
 
 
@@ -64,7 +67,7 @@ object NeutrinoBuild extends Build with Libraries {
     base = file("core"),
     settings = Project.defaultSettings ++
       sharedSettings ++
-      SbtStartScript.startScriptForClassesSettings ++
+      // SbtStartScript.startScriptForClassesSettings ++
       ScroogeSBT.newSettings
   ).settings(
     name := "neutrino-core",
@@ -77,6 +80,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.akka
       ++ Libs.scaldi
       ++ Libs.fastutil
+      ++ Libs.catalogueCommons
   )
 
 
@@ -85,8 +89,8 @@ object NeutrinoBuild extends Build with Libraries {
     id = "neutrino-user",
     base = file("user"),
     settings = Project.defaultSettings ++
-      sharedSettings ++
-      SbtStartScript.startScriptForClassesSettings
+      sharedSettings
+      // SbtStartScript.startScriptForClassesSettings
   ).settings(
     name := "neutrino-user",
 
@@ -95,6 +99,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.slf4j
       ++ Libs.logback
       ++ Libs.phantom
+      ++ Libs.lapse
   ).dependsOn(core)
 
 
@@ -102,8 +107,8 @@ object NeutrinoBuild extends Build with Libraries {
     id = "neutrino-bucket",
     base = file("bucket"),
     settings = Project.defaultSettings ++
-      sharedSettings ++
-      SbtStartScript.startScriptForClassesSettings
+      sharedSettings
+      // SbtStartScript.startScriptForClassesSettings
   ).settings(
     name := "neutrino-bucket",
 
@@ -112,6 +117,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.slf4j
       ++ Libs.logback
       ++ Libs.phantom
+      ++ Libs.bijection
   ).dependsOn(core)
 
 
@@ -120,8 +126,8 @@ object NeutrinoBuild extends Build with Libraries {
     id = "neutrino-feed",
     base = file("feed"),
     settings = Project.defaultSettings ++
-      sharedSettings ++
-      SbtStartScript.startScriptForClassesSettings
+      sharedSettings
+      // SbtStartScript.startScriptForClassesSettings
   ).settings(
     name := "neutrino-feed",
 
@@ -133,13 +139,30 @@ object NeutrinoBuild extends Build with Libraries {
   ).dependsOn(core)
 
 
+  lazy val search = Project(
+    id = "neutrino-search",
+    base = file("search"),
+    settings = Project.defaultSettings ++
+      sharedSettings
+      // SbtStartScript.startScriptForClassesSettings
+  ).settings(
+    name := "neutrino-search",
+
+    libraryDependencies ++= Seq(
+    ) ++ Libs.akka
+      ++ Libs.slf4j
+      ++ Libs.logback
+      ++ Libs.bijection
+      ++ Libs.playJson
+  ).dependsOn(core)
+
 
   lazy val shopplan = Project(
     id = "neutrino-shopplan",
     base = file("shopplan"),
     settings = Project.defaultSettings ++
-      sharedSettings ++
-      SbtStartScript.startScriptForClassesSettings
+      sharedSettings
+      // SbtStartScript.startScriptForClassesSettings
   ).settings(
     name := "neutrino-shopplan",
 
@@ -149,19 +172,38 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.logback
       ++ Libs.phantom
       ++ Libs.playJson
-  ).dependsOn(core)
-
+      ++ Libs.googleMaps
+  ).dependsOn(core, user, bucket)
 
 
   lazy val service = Project(
     id = "neutrino-service",
     base = file("service"),
     settings = Project.defaultSettings ++
-      sharedSettings ++
-      SbtStartScript.startScriptForClassesSettings
-  ).settings(
+      sharedSettings
+      // SbtStartScript.startScriptForClassesSettings
+  ).enablePlugins(JavaAppPackaging)
+  .settings(
     name := "neutrino-service",
+    mainClass in Compile := Some("neutrino.service.NeutrinoServer"),
 
+    dockerExposedPorts := Seq(2424),
+    // TODO: remove echo statement once verified
+    dockerEntrypoint := Seq("sh", "-c", "export NEUTRINO_HOST=`/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1 }'` && echo $NEUTRINO_HOST && bin/neutrino-service $*"),
+    dockerRepository := Some("docker"),
+    dockerBaseImage := "phusion/baseimage",
+    dockerCommands ++= Seq(
+      Cmd("USER", "root"),
+      new CmdLike {
+        def makeContent = """|RUN \
+                             |  echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | debconf-set-selections && \
+                             |  add-apt-repository -y ppa:webupd8team/java && \
+                             |  apt-get update && \
+                             |  apt-get install -y oracle-java7-installer && \
+                             |  rm -rf /var/lib/apt/lists/* && \
+                             |  rm -rf /var/cache/oracle-jdk7-installer""".stripMargin
+      }
+    ),
     libraryDependencies ++= Seq(
     ) ++ Libs.akka
       ++ Libs.slf4j
@@ -172,6 +214,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.scaldi
       ++ Libs.scaldiAkka
       ++ Libs.bijection
-  ).dependsOn(core, user, bucket, feed, shopplan)
+      ++ Libs.lapse
+  ).dependsOn(core, user, bucket, feed, shopplan, search)
 
 }

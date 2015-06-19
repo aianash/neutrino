@@ -6,6 +6,7 @@ import com.websudos.phantom.zookeeper.{SimpleCassandraConnector, DefaultCassandr
 import com.websudos.phantom.Implicits._
 import com.websudos.phantom.iteratee.Iteratee
 
+import com.datastax.driver.core.Session
 
 class UserCassandraManager(settings: UserSettings) extends DefaultCassandraManager {
   override def cassandraHost: String = settings.CassandraHost
@@ -16,8 +17,12 @@ class UserCassandraManager(settings: UserSettings) extends DefaultCassandraManag
 trait UserConnector extends SimpleCassandraConnector {
   def settings: UserSettings
 
-  override def manager = new UserCassandraManager(settings)
+  override val manager = new UserCassandraManager(settings)
 
   val keySpace = settings.CassandraKeyspace
 
+  override implicit lazy val session: Session = {
+    manager.initIfNotInited(keySpace)
+    manager.session
+  }
 }

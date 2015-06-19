@@ -32,8 +32,12 @@ object NeutrinoServer {
     val serviceId = NeutrinoSettings(system).ServiceId
     val datacenterId = NeutrinoSettings(system).DatacenterId
 
-    val service = NeutrinoService.start
-    Await.ready(service)
+    val server = NeutrinoService.start
+
+    scala.sys.addShutdownHook {
+      val waitF = server.close()
+      Await.ready(waitF)
+    }
   }
 
 }

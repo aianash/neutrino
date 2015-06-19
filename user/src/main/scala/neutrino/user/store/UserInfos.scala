@@ -105,24 +105,29 @@ class UserInfos(val settings: UserSettings)
   def updateUserInfo(userId: UserId, info: UserInfo) = {
     val updateQ = update.where(_.uuid eqs userId.uuid)
 
-    val setTos = MutableSeq.empty[UserInfos => Assignment]
+    var setTos = MutableSeq.empty[UserInfos => Assignment]
 
-    info.name.flatMap(_.first)          .foreach {f =>    setTos :+ { (_:UserInfos).first         setTo f.some} }
-    info.name.flatMap(_.last)           .foreach {l =>    setTos :+ { (_:UserInfos).last          setTo l.some} }
-    info.name.flatMap(_.handle)         .foreach {h =>    setTos :+ { (_:UserInfos).handle        setTo h.some} }
+    info.name.flatMap(_.first)          .foreach {f =>    setTos = setTos :+ { (_:UserInfos).first         setTo f.some} }
+    info.name.flatMap(_.last)           .foreach {l =>    setTos = setTos :+ { (_:UserInfos).last          setTo l.some} }
+    info.name.flatMap(_.handle)         .foreach {h =>    setTos = setTos :+ { (_:UserInfos).handle        setTo h.some} }
 
-    info.gender                         .foreach {g =>    setTos :+ { (_:UserInfos).gender        setTo g.name.some} }
-    info.facebookInfo.map(_.userId)     .foreach {uid =>  setTos :+ { (_:UserInfos).fbuid         setTo uid.uuid.some} }
-    info.facebookInfo.flatMap(_.token)  .foreach {t =>    setTos :+ { (_:UserInfos).fbtoken       setTo t.some} }
-    info.email                          .foreach {e =>    setTos :+ { (_:UserInfos).email         setTo e.some} }
-    info.locale                         .foreach {l =>    setTos :+ { (_:UserInfos).locale        setTo l.name.some} }
-    info.timezone                       .foreach {t =>    setTos :+ { (_:UserInfos).timezone      setTo t.some} }
-    info.avatar.flatMap(_.small)        .foreach {as =>   setTos :+ { (_:UserInfos).avatarsmall   setTo as.some} }
-    info.avatar.flatMap(_.large)        .foreach {al =>   setTos :+ { (_:UserInfos).avatarlarge   setTo al.some} }
-    info.avatar.flatMap(_.medium)       .foreach {am =>   setTos :+ { (_:UserInfos).avatarmedium  setTo am.some} }
-    info.isNew                          .foreach {in =>   setTos :+ { (_:UserInfos).isNew         setTo in.some} }
+    info.gender                         .foreach {g =>    setTos = setTos :+ { (_:UserInfos).gender        setTo g.name.some} }
+    info.facebookInfo.map(_.userId)     .foreach {uid =>  setTos = setTos :+ { (_:UserInfos).fbuid         setTo uid.uuid.some} }
+    info.facebookInfo.flatMap(_.token)  .foreach {t =>    setTos = setTos :+ { (_:UserInfos).fbtoken       setTo t.some} }
+    info.email                          .foreach {e =>    setTos = setTos :+ { (_:UserInfos).email         setTo e.some} }
+    info.locale                         .foreach {l =>    setTos = setTos :+ { (_:UserInfos).locale        setTo l.name.some} }
+    info.timezone                       .foreach {t =>    setTos = setTos :+ { (_:UserInfos).timezone      setTo t.some} }
+    info.avatar.flatMap(_.small)        .foreach {as =>   setTos = setTos :+ { (_:UserInfos).avatarsmall   setTo as.some} }
+    info.avatar.flatMap(_.large)        .foreach {al =>   setTos = setTos :+ { (_:UserInfos).avatarlarge   setTo al.some} }
+    info.avatar.flatMap(_.medium)       .foreach {am =>   setTos = setTos :+ { (_:UserInfos).avatarmedium  setTo am.some} }
+    info.isNew                          .foreach {in =>   setTos = setTos :+ { (_:UserInfos).isNew         setTo in.some} }
 
-    setTos.tail.foldLeft(updateQ.modify(setTos.head)) { (updateQ, assignment) => updateQ.and(assignment) }
+    setTos match {
+      case MutableSeq()  => None
+      case MutableSeq(x) => updateQ.modify(x).some
+      case MutableSeq(head, tail @ _*) =>
+        tail.foldLeft(updateQ.modify(head)) { (updateQ, assignment) => updateQ.and(assignment) } some
+    }
   }
 
 }

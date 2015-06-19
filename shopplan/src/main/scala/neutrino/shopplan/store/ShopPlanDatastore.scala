@@ -22,21 +22,23 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
   object ShopPlanMeta extends ShopPlanMeta(settings)
   object ShopPlanMetaByInvitation extends ShopPlanMetaByInvitation(settings)
   object ShopPlanStores extends ShopPlanStores(settings)
+  object ShopPlanItems extends ShopPlanItems(settings)
   object ShopPlanDestinations extends ShopPlanDestinations(settings)
   object ShopPlanInvites extends ShopPlanInvites(settings)
 
 
   def init()(implicit executor: ExecutionContext) {
-    val creation =
+    val creationF =
       for {
         _ <- ShopPlanMeta.create.future()
         _ <- ShopPlanMetaByInvitation.create.future()
         _ <- ShopPlanStores.create.future()
+        _ <- ShopPlanItems.create.future()
         _ <- ShopPlanDestinations.create.future()
         _ <- ShopPlanInvites.create.future()
       } yield true
 
-    Await.ready(creation, 2 seconds)
+    Await.ready(creationF, 2 seconds)
   }
 
 
@@ -49,8 +51,9 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
 
     val shopplansF = ShopPlanMetaByInvitation.getOwnShopPlansBy(userId).fetch()
 
-    // Get stores
-    val storesF =
+    // Get stores with or without catalogue items
+    // [TO FIX] Shopplan items not being fetched
+    var storesF =
       fields.find(_ == Stores)
         .map { _ => ShopPlanStores.getStoresBy(userId, toStoreField(fields)).fetch().map(_.some) }
         .getOrElse(Future.successful(None))
@@ -108,13 +111,13 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
           val (storesF, destinationsF, invitesF) = getShopPlanFields(shopplanId, fields)
 
           for {
-            stores <- storesF
-            destinations <- destinationsF
-            invites <- invitesF
+            stores        <- storesF
+            destinations  <- destinationsF
+            invites       <- invitesF
           } yield shopplan.copy(
-              stores = stores,
+              stores       = stores,
               destinations = destinations,
-              invites = invites
+              invites      = invites
             )
         }
 
@@ -162,7 +165,7 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
 
 
   /**
-   * Add a new shopplan to database
+   * Add a new shopplan to storage
    */
   def addNewShopPlan(shopplan: ShopPlan)(implicit executor: ExecutionContext) = {
     val userId = shopplan.shopplanId.createdBy
@@ -173,6 +176,11 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
 
     // Once shop plan's meta has been inserted
     // Insert data to other tables
+
+    shopplan.stores.foreach { stores =>
+      stores.flatMap(_.catalogueItems.getOrElse(Seq.empty[JsonCatalogueItem]))
+            .foreach(item => batch add ShopPlanItems.insertItem(shopplan.shopplanId, item))
+    }
 
     shopplan.stores      .foreach(_.foreach(store =>       batch add ShopPlanStores.insertStore(store)))
     shopplan.destinations.foreach(_.foreach(destination => batch add ShopPlanDestinations.insertDestination(destination)))
@@ -190,32 +198,33 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
 
 
 
-  def updateShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan)(implicit executor: ExecutionContext) = {
-    val batch = BatchStatement()
+  // [TO DO]
+  // def updateShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan)(implicit executor: ExecutionContext) = {
+  //   val batch = BatchStatement()
 
-    cud.meta.foreach(_.title.foreach { title =>
-      batch add ShopPlanMeta            .updateTitleBy(shopplanId, title)
-      batch add ShopPlanMetaByInvitation.updateTitleBy(shopplanId, title)
-    })
+  //   cud.meta.foreach(_.title.foreach { title =>
+  //     batch add ShopPlanMeta            .updateTitleBy(shopplanId, title)
+  //     batch add ShopPlanMetaByInvitation.updateTitleBy(shopplanId, title)
+  //   })
 
-    cud.destinations.foreach { destinations =>
-      destinations.adds     .toSeq.flatten.foreach { batch add ShopPlanDestinations.insertDestination(_) }
-      destinations.updates  .toSeq.flatten.foreach { batch add ShopPlanDestinations.updateDestinationBy(_) }
-      destinations.removals .toSeq.flatten.foreach { batch add ShopPlanDestinations.deleteDestinationsBy(_) }
-    }
+  //   cud.destinations.foreach { destinations =>
+  //     destinations.adds     .toSeq.flatten.foreach { batch add ShopPlanDestinations.insertDestination(_) }
+  //     destinations.updates  .toSeq.flatten.foreach { batch add ShopPlanDestinations.updateDestinationBy(_) }
+  //     destinations.removals .toSeq.flatten.foreach { batch add ShopPlanDestinations.deleteDestinationsBy(_) }
+  //   }
 
-    cud.stores.foreach { stores =>
-      stores.adds    .toSeq.flatten.foreach { batch add ShopPlanStores.insertStore(_) }
-      stores.removals.toSeq.flatten.foreach { batch add ShopPlanStores.deleteStoreBy(shopplanId, _) }
-    }
+  //   cud.stores.foreach { stores =>
+  //     stores.adds    .toSeq.flatten.foreach { batch add ShopPlanStores.insertStore(_) }
+  //     stores.removals.toSeq.flatten.foreach { batch add ShopPlanStores.deleteStoreBy(shopplanId, _) }
+  //   }
 
-    cud.invites.foreach { invites =>
-      invites.adds    .toSeq.flatten.foreach { batch add ShopPlanInvites.insertInvite(_) }
-      invites.removals.toSeq.flatten.foreach { batch add ShopPlanInvites.deleteInviteBy(shopplanId, _) }
-    }
+  //   cud.invites.foreach { invites =>
+  //     invites.adds    .toSeq.flatten.foreach { batch add ShopPlanInvites.insertInvite(_) }
+  //     invites.removals.toSeq.flatten.foreach { batch add ShopPlanInvites.deleteInviteBy(shopplanId, _) }
+  //   }
 
-    batch.future()
-  }
+  //   batch.future()
+  // }
 
 
 
@@ -227,6 +236,7 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
       batch add ShopPlanMetaByInvitation.deleteShopPlansBy(shopplanId)
       batch add ShopPlanStores          .deleteStoresBy(shopplanId)
       batch add ShopPlanDestinations    .deleteDestinationsBy(shopplanId)
+      batch add ShopPlanItems           .deleteItemsBy(shopplanId)
 
 
     ShopPlanInvites.getInvitesBy(shopplanId).fetch() flatMap { invites =>
@@ -252,7 +262,7 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
 
     val storesF =
       fields.find(_ == Stores)
-        .map { _ => ShopPlanStores.getStoresBy(shopplanId, toStoreField(fields)).fetch().map(_.some) }
+        .map { _ => getShopPlanStores(shopplanId, toStoreField(fields)).map(_.some) }
         .getOrElse(Future.successful(None))
 
     val destinationsF =
@@ -270,6 +280,31 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
   }
 
 
+  private def getShopPlanStores(shopplanId: ShopPlanId, fields: Seq[ShopPlanStoreField])(implicit executor: ExecutionContext) = {
+    import ShopPlanStoreField._
+
+    var storesF = ShopPlanStores.getStoresBy(shopplanId, fields).fetch()
+
+    if(fields.exists(_ == CatalogueItems)) {
+      val grpdItemsF =
+        ShopPlanItems.getItemsBy(shopplanId).fetch()
+                     .map(items => items.groupBy(_.itemId.storeId.stuid))
+
+      for {
+        stores    <- storesF
+        grpdItems <- grpdItemsF
+      } yield
+        stores.map(store =>
+          store.copy(
+            catalogueItems = grpdItems.get(store.storeId.stuid),
+            itemIds        = grpdItems.get(store.storeId.stuid).map(_.map(_.itemId))
+          )
+        )
+
+    } else storesF
+
+  }
+
 
   /**
    * Create Seq[ShopPlanStoreField] from Seq[ShopPlanField]
@@ -277,9 +312,10 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
   private def toStoreField(fields: Seq[ShopPlanField]) = {
     import ShopPlanStoreField._
 
-    val storeFields = Seq(Name, Address, ItemTypes)
-    if(fields.contains(CatalogueItems)) storeFields :+ CatalogueItems
-    else storeFields
+    var storeFields = Seq(Name, Address, Avatar, ItemTypes, Contacts)
+    if(fields.contains(ShopPlanField.CatalogueItems))    storeFields = storeFields :+ CatalogueItems
+    if(fields.contains(ShopPlanField.CatalogueItemIds))  storeFields = storeFields :+ CatalogueItemIds
+    storeFields
   }
 
 }

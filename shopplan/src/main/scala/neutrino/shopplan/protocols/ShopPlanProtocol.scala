@@ -1,12 +1,10 @@
 package neutrino.shopplan.protocols
 
-import scala.collection.Set
-
 import com.goshoplane.common._
 import com.goshoplane.neutrino.shopplan._
 import com.goshoplane.neutrino.service._
 
-import neutrino.core.protocols._
+import goshoplane.commons.core.protocols.Replyable
 
 sealed trait ShopPlanSupervisorMessages extends Serializable
 
@@ -36,7 +34,7 @@ case class GetShopPlan(shopplanId: ShopPlanId, fields: Seq[ShopPlanField])
   extends ShopPlanMessages with Replyable[ShopPlan]
 
 case class AddNewShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan)
-  extends ShopPlanMessages with Replyable[ShopPlanId]
+  extends ShopPlanMessages with Replyable[Boolean]
 
 case class ModifyShopPlan(shopplanId: ShopPlanId, cud: CUDShopPlan)
   extends ShopPlanMessages with Replyable[Boolean]

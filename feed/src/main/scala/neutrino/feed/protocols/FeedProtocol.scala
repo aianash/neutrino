@@ -3,7 +3,7 @@ package neutrino.feed.protocols
 import com.goshoplane.common._
 import com.goshoplane.neutrino.feed._
 
-import neutrino.core.protocols.Replyable
+import goshoplane.commons.core.protocols.Replyable
 
 sealed trait FeedMessages
 

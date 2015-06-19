@@ -22,19 +22,6 @@ import com.datastax.driver.core.querybuilder.QueryBuilder
 /**
  * ShopPlan keyspace for
  *
- * {{{
- *
- *   CREATE TABLE  plan_friends {
- *     userId bigint,
- *     shopplanId bigint,
- *     friendId bigint,
- *     username text,
- *     useravatar: text,
- *     invitestatus int,
- *
- *     PRIMARY KEY (userId, shopplanId)
- *   }
- * }}}
  */
 class ShopPlanMeta(val settings: ShopPlanSettings)
   extends CassandraTable[ShopPlanMeta, ShopPlan] with ShopPlanConnector {
@@ -50,7 +37,7 @@ class ShopPlanMeta(val settings: ShopPlanSettings)
   object title extends OptionalStringColumn(this)
 
   // is invitation
-  object isInvitation extends BooleanColumn(this) with PrimaryKey[Long]
+  object isInvitation extends BooleanColumn(this)
 
   override def fromRow(row: Row) =
     ShopPlan(
@@ -66,6 +53,7 @@ class ShopPlanMeta(val settings: ShopPlanSettings)
   def insertShopPlan(userId: UserId, shopPlan: ShopPlan) =
     insert
       .value(_.uuid,          userId.uuid)
+      .value(_.suid,          shopPlan.shopplanId.suid)
       .value(_.cyuid,         shopPlan.shopplanId.createdBy.uuid)
       .value(_.title,         shopPlan.title)
       .value(_.isInvitation,  shopPlan.isInvitation)
@@ -138,6 +126,7 @@ class ShopPlanMetaByInvitation(val settings: ShopPlanSettings)
   def insertShopPlan(userId: UserId, shopPlan: ShopPlan) =
     insert
       .value(_.uuid,          userId.uuid)
+      .value(_.suid,          shopPlan.shopplanId.suid)
       .value(_.cyuid,         shopPlan.shopplanId.createdBy.uuid)
       .value(_.title,         shopPlan.title)
       .value(_.isInvitation,  shopPlan.isInvitation)
