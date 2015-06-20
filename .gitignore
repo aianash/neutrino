@@ -32,3 +32,5 @@ conceptindex*
 dictionaryDb*
 *.txt*
 
+bin/
+lib/

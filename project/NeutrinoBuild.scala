@@ -9,14 +9,12 @@ import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
 import com.typesafe.sbt.SbtScalariform
 import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 
-// import com.typesafe.sbt.SbtStartScript
-
 import sbtassembly.AssemblyPlugin.autoImport._
 
 import com.twitter.scrooge.ScroogeSBT
 
 import com.typesafe.sbt.SbtNativePackager._, autoImport._
-import com.typesafe.sbt.packager.Keys._
+import com.typesafe.sbt.packager.Keys.{executableScriptName => _, _}
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd, CmdLike}
 
 object NeutrinoBuild extends Build with Libraries {
@@ -33,14 +31,14 @@ object NeutrinoBuild extends Build with Libraries {
     javaOptions += "-Xmx2500M",
 
     resolvers ++= Seq(
-      "ReaderDeck Releases"    at "http://repo.readerdeck.com/artifactory/readerdeck-releases",
       "anormcypher"            at "http://repo.anormcypher.org/",
       "Akka Repository"        at "http://repo.akka.io/releases",
       "Spray Repository"       at "http://repo.spray.io/",
       "twitter-repo"           at "http://maven.twttr.com",
       "Typesafe Repository"    at "http://repo.typesafe.com/typesafe/releases/",
-      "Websudos releases"      at "http://maven.websudos.co.uk/ext-release-local",
-      "Websudos snapshots"     at "http://maven.websudos.co.uk/ext-snapshot-local",
+      // This repo is not really working, so commented
+      // "Websudos releases"      at "http://maven.websudos.co.uk/ext-release-local",
+      // "Websudos snapshots"     at "http://maven.websudos.co.uk/ext-snapshot-local",
       "Sonatype repo"          at "https://oss.sonatype.org/content/groups/scala-tools/",
       "Sonatype releases"      at "https://oss.sonatype.org/content/repositories/releases",
       "Sonatype snapshots"     at "https://oss.sonatype.org/content/repositories/snapshots",
@@ -58,7 +56,7 @@ object NeutrinoBuild extends Build with Libraries {
     settings = Project.defaultSettings ++
       sharedSettings
   ).settings(
-  ) aggregate (core, user, bucket, feed, shopplan, search, service)
+  ) aggregate (core, user, bucket, feed, shopplan, search, service, scripts)
 
 
 
@@ -66,9 +64,7 @@ object NeutrinoBuild extends Build with Libraries {
     id = "neutrino-core",
     base = file("core"),
     settings = Project.defaultSettings ++
-      sharedSettings ++
-      // SbtStartScript.startScriptForClassesSettings ++
-      ScroogeSBT.newSettings
+      sharedSettings
   ).settings(
     name := "neutrino-core",
 
@@ -90,7 +86,6 @@ object NeutrinoBuild extends Build with Libraries {
     base = file("user"),
     settings = Project.defaultSettings ++
       sharedSettings
-      // SbtStartScript.startScriptForClassesSettings
   ).settings(
     name := "neutrino-user",
 
@@ -108,7 +103,6 @@ object NeutrinoBuild extends Build with Libraries {
     base = file("bucket"),
     settings = Project.defaultSettings ++
       sharedSettings
-      // SbtStartScript.startScriptForClassesSettings
   ).settings(
     name := "neutrino-bucket",
 
@@ -127,7 +121,6 @@ object NeutrinoBuild extends Build with Libraries {
     base = file("feed"),
     settings = Project.defaultSettings ++
       sharedSettings
-      // SbtStartScript.startScriptForClassesSettings
   ).settings(
     name := "neutrino-feed",
 
@@ -144,7 +137,6 @@ object NeutrinoBuild extends Build with Libraries {
     base = file("search"),
     settings = Project.defaultSettings ++
       sharedSettings
-      // SbtStartScript.startScriptForClassesSettings
   ).settings(
     name := "neutrino-search",
 
@@ -162,7 +154,6 @@ object NeutrinoBuild extends Build with Libraries {
     base = file("shopplan"),
     settings = Project.defaultSettings ++
       sharedSettings
-      // SbtStartScript.startScriptForClassesSettings
   ).settings(
     name := "neutrino-shopplan",
 
@@ -176,16 +167,26 @@ object NeutrinoBuild extends Build with Libraries {
   ).dependsOn(core, user, bucket)
 
 
+  // makeScript task is used to create a linked scripts
+  // while development
+  lazy val makeScript = TaskKey[Unit]("make-script", "make script to run scripts")
+
+
   lazy val service = Project(
     id = "neutrino-service",
     base = file("service"),
     settings = Project.defaultSettings ++
       sharedSettings
-      // SbtStartScript.startScriptForClassesSettings
   ).enablePlugins(JavaAppPackaging)
   .settings(
     name := "neutrino-service",
     mainClass in Compile := Some("neutrino.service.NeutrinoServer"),
+
+    makeScript <<= (stage in Universal, stagingDirectory in Universal, baseDirectory in ThisBuild, streams) map { (_, dir, cwd, streams) =>
+      var path = dir / "bin" / "neutrino-service"
+      sbt.Process(Seq("ln", "-sf", path.toString, "neutrino-service"), cwd) ! streams.log
+    },
+
 
     dockerExposedPorts := Seq(2424),
     // TODO: remove echo statement once verified
@@ -216,5 +217,28 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.bijection
       ++ Libs.lapse
   ).dependsOn(core, user, bucket, feed, shopplan, search)
+
+
+  lazy val scripts = Project(
+    id = "neutrino-scripts",
+    base = file("scripts"),
+    settings = Project.defaultSettings ++
+      sharedSettings
+  ).enablePlugins(JavaAppPackaging)
+  .settings(
+    name := "neutrino-scripts",
+    mainClass in Compile := Some("neutrino.scripts.NeutrinoClient"),
+
+    makeScript <<= (stage in Universal, stagingDirectory in Universal, baseDirectory in ThisBuild, streams) map { (_, dir, cwd, streams) =>
+      var path = dir / "bin" / "neutrino-client"
+      sbt.Process(Seq("ln", "-sf", path.toString, "neutrino-client"), cwd) ! streams.log
+    },
+
+    executableScriptName := "neutrino-client",
+
+    libraryDependencies ++= Seq(
+    ) ++ Libs.catalogueCommons
+      ++ Libs.lapse
+  ).dependsOn(core)
 
 }

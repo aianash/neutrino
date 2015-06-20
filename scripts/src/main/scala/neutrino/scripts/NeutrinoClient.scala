@@ -1,4 +1,4 @@
-package neutrino.service
+package neutrino.scripts
 
 import scala.util.Random
 import scala.concurrent.duration.FiniteDuration
@@ -24,7 +24,7 @@ import scalaz._, Scalaz._
  *   service/target/start neutrino.service.TestNeutrinoClient
  * }}}
  */
-object TestNeutrinoClient {
+object NeutrinoClient {
 
   object User {
 
