@@ -260,6 +260,8 @@ sealed class ShopPlanDatastore(val settings: ShopPlanSettings)
   private def getShopPlanFields(shopplanId: ShopPlanId, fields: Seq[ShopPlanField])(implicit executor: ExecutionContext) = {
     import ShopPlanField._
 
+    // [IMP] If Stores is not there then we cannot get the catalogue itesm, because right not stores
+    // contains catalogue items, this will be corrected in next version of shopplan
     val storesF =
       fields.find(_ == Stores)
         .map { _ => getShopPlanStores(shopplanId, toStoreField(fields)).map(_.some) }
