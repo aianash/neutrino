@@ -17,6 +17,8 @@ import com.goshoplane.creed.search._
 
 import scalaz._, Scalaz._
 
+import org.rogach.scallop._
+
 
 /**
  * [TO DO] Proper test
@@ -196,89 +198,135 @@ object NeutrinoClient {
   }
 
 
+  val Neutrino = {
+    val protocol = new TBinaryProtocol.Factory()
+    val client = ClientBuilder().codec(new ThriftClientFramedCodecFactory(None, false, protocol))
+      .dest("localhost:2424").hostConnectionLimit(2).build()
+    new Neutrino$FinagleClient(client, protocol)
+  }
+
+
+  class NeutrinoClientConf(args: Seq[String]) extends ScallopConf(args) {
+
+    val api  = opt[String](required = true)
+    val uuid = opt[Long]()
+    val suid = opt[Long]()
+    val shopplanField = opt[String]("sf", required = false)
+  }
+
+
+  def getShopPlanFields(conf: NeutrinoClientConf) = {
+    import ShopPlanField._
+    conf.shopplanField.get
+        .map(_.split(",").flatMap(ShopPlanField.valueOf(_)).toSeq)
+        .getOrElse(Seq(Title, Stores, CatalogueItems, CatalogueItemIds, Destinations, Invites))
+  }
+
+
   def main(args: Array[String]) {
 
-    val Neutrino = {
-      val protocol = new TBinaryProtocol.Factory()
-      val client = ClientBuilder().codec(new ThriftClientFramedCodecFactory(None, false, protocol))
-        .dest("localhost:2424").hostConnectionLimit(2).build()
-      new Neutrino$FinagleClient(client, protocol)
-    }
+    val conf = new NeutrinoClientConf(args)
 
-    val apiLatencies = new scala.collection.mutable.HashMap[String, FiniteDuration]()
-
-    val aelapsed = lapse.Stopwatch.start()
-    Neutrino.createUser(User.info) foreach { userId =>
-      apiLatencies.put("Create user in = ", aelapsed())
-      println(s"\n\nCreated user ${userId.uuid} in ${aelapsed()}")
-
-      val belapsed = lapse.Stopwatch.start()
-      Neutrino.search(Search.searchRequest(userId)).foreach { response =>
-        apiLatencies.put("Search finished in = ", belapsed())
-        println(s"\n\nSearch finished in ${belapsed()}")
-        Search.print(response)
-
-        val adds = response.result.flatMap(_.items).map(_.itemId).distinct
-        val celapsed = lapse.Stopwatch.start()
-        Neutrino.cudBucket(userId, CUDBucket(adds.some)) foreach { success =>
-          apiLatencies.put("CUD Bucket in = ", celapsed())
-          println(s"\n\nCUD bucket finished ${success}ly in ${celapsed()}")
-
-          val delapsed = lapse.Stopwatch.start()
-          Neutrino.getBucketStores(userId, Bucket.fields) foreach { stores =>
-            apiLatencies.put("Got Bucket stores in = ", delapsed())
-            println(s"\n\nGot Bucket Stores in ${delapsed()} and stores = ")
-            stores.foreach(Bucket.print)
-
-            // Values for cud shop plan
-
-            var destIdSeq = System.currentTimeMillis
-            val destinations = stores.take(2).flatMap(_.info.address).foldLeft(Seq.empty[Destination]) { (destinations, address) =>
-              Destination(
-                destId  = DestinationId(shopplanId = ShopPlanId(createdBy = userId, suid = -1L),
-                                        dtuid = math.abs(destIdSeq + Random.nextLong)),
-                address = PostalAddress(gpsLoc = address.gpsLoc)
-              ) +: destinations
-            }
-
-            val cudDestinations = CUDDestinations(adds = destinations.some)
-            val cudInvites      = CUDInvites()
-            val cudItems        = CUDShopPlanItems(stores.flatMap(_.catalogueItems).flatMap(_.map(_.itemId)).some)
-            val cudMeta         = CUDShopPlanMeta(title = "Your new shop plan".some)
-
-            val cud = CUDShopPlan(meta          = cudMeta.some,
-                                  destinations  = cudDestinations.some,
-                                  invites       = cudInvites.some,
-                                  items         = cudItems.some)
-
-            val eelapsed = lapse.Stopwatch.start()
-            Neutrino.createShopPlan(userId, cud) foreach { shopplanId =>
-              apiLatencies.put("Create Shop plan in = ", eelapsed())
-              println(s"\n\nCreated shop plan in ${eelapsed()} and shop plan id = " + shopplanId.suid)
-
-              import ShopPlanField._
-              val fields = Seq(Title, Stores, CatalogueItems, Destinations, Invites)
-
-              val nelapsed = lapse.Stopwatch.start()
-              Neutrino.getShopPlan(shopplanId, fields) foreach { shopPlan =>
-                apiLatencies.put("Got shop plan in = ", nelapsed())
-                println(s"\n\nGot shop plan in ${nelapsed()} and shop plan id = " + shopplanId.suid)
-                ShopPlanUtils.print(shopPlan)
-              }
-
-              val oelapsed = lapse.Stopwatch.start()
-              Neutrino.getOwnShopPlans(userId, Seq(Title, Stores, Destinations, Invites, CatalogueItemIds)) foreach { shopPlans =>
-                apiLatencies.put("Got own shop plans in = ", oelapsed())
-                println(s"\n\nGot own shop plans in ${oelapsed()} and shop plans are = ")
-                shopPlans.foreach(ShopPlanUtils.print(_))
-
-                apiLatencies.toSeq.foreach(s => println(s._1 + " " + s._2))
-              }
-            }
+    conf.api() match {
+      case "getshopplan" =>
+        val fields = getShopPlanFields(conf)
+        (conf.suid.get |@| conf.uuid.get) { (suid, uuid) =>
+          val shopplanId = ShopPlanId(createdBy = UserId(uuid = uuid), suid = suid)
+          val elapsed = lapse.Stopwatch.start()
+          Neutrino.getShopPlan(shopplanId, fields).foreach { shopplan =>
+            println(s"\n\nGot shopplan in = ${elapsed()}")
+            ShopPlanUtils.print(shopplan)
           }
         }
-      }
+
+
+      case "getownshopplans" =>
+        val fields = getShopPlanFields(conf)
+        conf.uuid.get foreach { (uuid) =>
+          Neutrino.getOwnShopPlans(UserId(uuid = uuid), fields).foreach { shopplans =>
+            shopplans.foreach(ShopPlanUtils.print(_))
+          }
+        }
+
+
+      // [NOTE] Other apis could be implemented as required. Otherwise we are shifting to
+      // akka cluster very soon
     }
+
+    // val apiLatencies = new scala.collection.mutable.HashMap[String, FiniteDuration]()
+
+    // val aelapsed = lapse.Stopwatch.start()
+    // Neutrino.createUser(User.info) foreach { userId =>
+    //   apiLatencies.put("Create user in = ", aelapsed())
+    //   println(s"\n\nCreated user ${userId.uuid} in ${aelapsed()}")
+
+    //   val belapsed = lapse.Stopwatch.start()
+    //   Neutrino.search(Search.searchRequest(userId)).foreach { response =>
+    //     apiLatencies.put("Search finished in = ", belapsed())
+    //     println(s"\n\nSearch finished in ${belapsed()}")
+    //     Search.print(response)
+
+    //     val adds = response.result.flatMap(_.items).map(_.itemId).distinct
+    //     val celapsed = lapse.Stopwatch.start()
+    //     Neutrino.cudBucket(userId, CUDBucket(adds.some)) foreach { success =>
+    //       apiLatencies.put("CUD Bucket in = ", celapsed())
+    //       println(s"\n\nCUD bucket finished ${success}ly in ${celapsed()}")
+
+    //       val delapsed = lapse.Stopwatch.start()
+    //       Neutrino.getBucketStores(userId, Bucket.fields) foreach { stores =>
+    //         apiLatencies.put("Got Bucket stores in = ", delapsed())
+    //         println(s"\n\nGot Bucket Stores in ${delapsed()} and stores = ")
+    //         stores.foreach(Bucket.print)
+
+    //         // Values for cud shop plan
+
+    //         var destIdSeq = System.currentTimeMillis
+    //         val destinations = stores.take(2).flatMap(_.info.address).foldLeft(Seq.empty[Destination]) { (destinations, address) =>
+    //           Destination(
+    //             destId  = DestinationId(shopplanId = ShopPlanId(createdBy = userId, suid = -1L),
+    //                                     dtuid = math.abs(destIdSeq + Random.nextLong)),
+    //             address = PostalAddress(gpsLoc = address.gpsLoc)
+    //           ) +: destinations
+    //         }
+
+    //         val cudDestinations = CUDDestinations(adds = destinations.some)
+    //         val cudInvites      = CUDInvites()
+    //         val cudItems        = CUDShopPlanItems(stores.flatMap(_.catalogueItems).flatMap(_.map(_.itemId)).some)
+    //         val cudMeta         = CUDShopPlanMeta(title = "Your new shop plan".some)
+
+    //         val cud = CUDShopPlan(meta          = cudMeta.some,
+    //                               destinations  = cudDestinations.some,
+    //                               invites       = cudInvites.some,
+    //                               items         = cudItems.some)
+
+    //         val eelapsed = lapse.Stopwatch.start()
+    //         Neutrino.createShopPlan(userId, cud) foreach { shopplanId =>
+    //           apiLatencies.put("Create Shop plan in = ", eelapsed())
+    //           println(s"\n\nCreated shop plan in ${eelapsed()} and shop plan id = " + shopplanId.suid)
+
+    //           import ShopPlanField._
+    //           val fields = Seq(Title, Stores, CatalogueItems, Destinations, Invites)
+
+    //           val nelapsed = lapse.Stopwatch.start()
+    //           Neutrino.getShopPlan(shopplanId, fields) foreach { shopPlan =>
+    //             apiLatencies.put("Got shop plan in = ", nelapsed())
+    //             println(s"\n\nGot shop plan in ${nelapsed()} and shop plan id = " + shopplanId.suid)
+    //             ShopPlanUtils.print(shopPlan)
+    //           }
+
+    //           val oelapsed = lapse.Stopwatch.start()
+    //           Neutrino.getOwnShopPlans(userId, Seq(Title, Stores, Destinations, Invites, CatalogueItemIds)) foreach { shopPlans =>
+    //             apiLatencies.put("Got own shop plans in = ", oelapsed())
+    //             println(s"\n\nGot own shop plans in ${oelapsed()} and shop plans are = ")
+    //             shopPlans.foreach(ShopPlanUtils.print(_))
+
+    //             apiLatencies.toSeq.foreach(s => println(s._1 + " " + s._2))
+    //           }
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
 
 
   }

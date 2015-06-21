@@ -68,7 +68,9 @@ class ShopPlanMeta(val settings: ShopPlanSettings)
   /**
    *
    */
-  def getShopPlanBy(shopplanId: ShopPlanId) = select.where(_.uuid eqs shopplanId.createdBy.uuid)
+  def getShopPlanBy(shopplanId: ShopPlanId) =
+    select.where(_.uuid eqs shopplanId.createdBy.uuid)
+          .and(  _.suid eqs shopplanId.suid)
 
 
   /**
@@ -104,7 +106,7 @@ class ShopPlanMetaByInvitation(val settings: ShopPlanSettings)
   override def tableName = "shopplan_meta_by_invites"
 
   object uuid extends LongColumn(this) with PartitionKey[Long]
-  object isInvitation extends BooleanColumn(this) with PrimaryKey[Boolean] //with ClusteringOrder[Long] with Ascending
+  object isInvitation extends BooleanColumn(this) with PrimaryKey[Boolean]
   object suid extends LongColumn(this) with PrimaryKey[Long]
 
   object cyuid extends LongColumn(this)

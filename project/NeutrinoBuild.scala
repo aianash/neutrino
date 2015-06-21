@@ -239,6 +239,7 @@ object NeutrinoBuild extends Build with Libraries {
     libraryDependencies ++= Seq(
     ) ++ Libs.catalogueCommons
       ++ Libs.lapse
+      ++ Libs.scallop
   ).dependsOn(core)
 
 }
