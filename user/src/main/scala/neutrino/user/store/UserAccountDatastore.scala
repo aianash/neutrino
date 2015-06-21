@@ -51,7 +51,7 @@ sealed class UserAccountDatastore(val settings: UserSettings)
 
 
   def getUserInfo(userId: UserId)(implicit executor: ExecutionContext) =
-    UserInfos.getInfoBy(userId).one()
+    UserInfos.getInfoBy(userId).one().map(_.get)
 
 
   def getUserFriends(userId: UserId)(implicit executor: ExecutionContext) =
