@@ -206,6 +206,7 @@ object NeutrinoBuild extends Build with Libraries {
       ++ Libs.scaldiAkka
       ++ Libs.bijection
       ++ Libs.lapse
+      ++ Libs.microservice
   ).dependsOn(core, user, bucket, feed, shopplan, search)
 
 }

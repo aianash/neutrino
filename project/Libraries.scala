@@ -67,6 +67,9 @@ trait Libraries {
     val catalogueCommons = Seq(
       "com.goshoplane" %% "commons-catalogue" % Version.catalogueCommons)
 
+    val microservice = Seq(
+      "com.goshoplane" %% "commons-microservice" % Version.catalogueCommons)
+
 
     val playJson = Seq (
       "com.typesafe.play" %% "play-json" % Version.play)
