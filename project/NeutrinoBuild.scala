@@ -58,7 +58,7 @@ object NeutrinoBuild extends Build with Libraries {
     settings = Project.defaultSettings ++
       sharedSettings
   ).settings(
-  ) aggregate (core, user, bucket, feed, shopplan, search, service)
+  ) aggregate (core)
 
 
 
