@@ -9,7 +9,7 @@ import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
 import com.typesafe.sbt.SbtScalariform
 import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 
-// import com.typesafe.sbt.SbtStartScript
+import com.typesafe.sbt.SbtStartScript
 
 import sbtassembly.AssemblyPlugin.autoImport._
 
@@ -19,7 +19,9 @@ import com.typesafe.sbt.SbtNativePackager._, autoImport._
 import com.typesafe.sbt.packager.Keys._
 import com.typesafe.sbt.packager.docker.{Cmd, ExecCmd, CmdLike}
 
-object NeutrinoBuild extends Build with Libraries {
+import com.goshoplane.sbt.standard.libraries.StandardLibraries
+
+object NeutrinoBuild extends Build with StandardLibraries {
 
   def sharedSettings = Seq(
     organization := "com.goshoplane",
@@ -32,21 +34,7 @@ object NeutrinoBuild extends Build with Libraries {
     fork := true,
     javaOptions += "-Xmx2500M",
 
-    resolvers ++= Seq(
-      "ReaderDeck Releases"    at "http://repo.readerdeck.com/artifactory/readerdeck-releases",
-      "anormcypher"            at "http://repo.anormcypher.org/",
-      "Akka Repository"        at "http://repo.akka.io/releases",
-      "Spray Repository"       at "http://repo.spray.io/",
-      "twitter-repo"           at "http://maven.twttr.com",
-      "Typesafe Repository"    at "http://repo.typesafe.com/typesafe/releases/",
-      "Websudos releases"      at "http://maven.websudos.co.uk/ext-release-local",
-      "Websudos snapshots"     at "http://maven.websudos.co.uk/ext-snapshot-local",
-      "Sonatype repo"          at "https://oss.sonatype.org/content/groups/scala-tools/",
-      "Sonatype releases"      at "https://oss.sonatype.org/content/repositories/releases",
-      "Sonatype snapshots"     at "https://oss.sonatype.org/content/repositories/snapshots",
-      "Sonatype staging"       at "http://oss.sonatype.org/content/repositories/staging",
-      "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository"
-    ),
+    resolvers ++= StandardResolvers,
 
     publishMavenStyle := true
   ) ++ net.virtualvoid.sbt.graph.Plugin.graphSettings
@@ -58,8 +46,42 @@ object NeutrinoBuild extends Build with Libraries {
     settings = Project.defaultSettings ++
       sharedSettings
   ).settings(
-  ) aggregate (core)
+  ) aggregate (core, auth, user)
 
+
+  lazy val auth = Project(
+    id = "neutrino-auth",
+    base = file("auth"),
+    settings = Project.defaultSettings ++
+      SbtStartScript.startScriptForClassesSettings ++
+      sharedSettings
+  ).settings(
+    name := "neutrino-auth",
+
+    libraryDependencies ++= Seq(
+    ) ++ Libs.scalaz
+      ++ Libs.akka
+      ++ Libs.scaldi
+      ++ Libs.restFb
+      ++ Libs.playJson
+  ).dependsOn(core)
+
+  lazy val user = Project(
+    id = "neutrino-user",
+    base = file("user"),
+    settings = Project.defaultSettings ++
+      SbtStartScript.startScriptForClassesSettings ++
+      sharedSettings
+    ).settings(
+      name := "neutrino-user",
+
+      libraryDependencies ++= Seq(
+      ) ++ Libs.scalaz
+        ++ Libs.akka
+        ++ Libs.scaldi
+        ++ Libs.phantom
+        ++ Libs.commonsCore
+    ).dependsOn(core)
 
 
   lazy val core = Project(
@@ -74,13 +96,8 @@ object NeutrinoBuild extends Build with Libraries {
 
     libraryDependencies ++= Seq(
     ) ++ Libs.scalaz
-      ++ Libs.scroogeCore
-      ++ Libs.finagleThrift
-      ++ Libs.libThrift
       ++ Libs.akka
       ++ Libs.scaldi
-      ++ Libs.fastutil
-      ++ Libs.catalogueCommons
   )
 
 }
