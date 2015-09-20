@@ -1,11 +1,14 @@
 package neutrino.user.store
 
+import scala.concurrent.Future
+import scala.collection.mutable.{Seq => MutableSeq}
 import scalaz._, Scalaz._
 import scalaz.std.option._
 import scalaz.syntax.monad._
 
-import scala.concurrent.Future
 import com.websudos.phantom.dsl._
+import com.websudos.phantom.builder.query.CQLQuery
+import com.websudos.phantom.builder.clauses.UpdateClause
 
 import neutrino.core.user._
 import neutrino.user._
@@ -96,16 +99,46 @@ abstract class ConcreteUserInfo(val settings: UserSettings) extends UserInfo wit
       .value(_.username, user.username.map(_.username))
       .value(_.first, user.name.map(_.first))
       .value(_.last, user.name.map(_.last))
-      .value(_.gender, user.gender.map(_.value))
       .value(_.email, user.email.map(_.email))
+      .value(_.mobile, user.mobile.map(_.mobile))
+      .value(_.gender, user.gender.map(_.value))
       .value(_.locale, user.locale.map(_.value))
       .value(_.city, user.location.map(_.city))
       .value(_.country, user.location.map(_.country))
       .value(_.usertype, user.usertype.value)
+      .value(_.avatarsmall, user.avatar.map(_.small))
+      .value(_.avatarmedium, user.avatar.map(_.medium))
+      .value(_.avatarlarge, user.avatar.map(_.large))
   }
 
   def getByUserId(id: UserId): Future[Option[User]] = {
     select.where(_.uuid eqs id.uuid).one()
+  }
+
+  def updateUserInfo(user: User) = {
+    val updateWhere = update.where(_.uuid eqs user.userId.uuid)
+    var setTos = MutableSeq.empty[ConcreteUserInfo => UpdateClause.Condition]
+
+    user.name.map(_.first)          .foreach { f  => setTos = setTos :+ { (_ : ConcreteUserInfo).first        setTo f.some }}
+    user.name.map(_.last)           .foreach { l  => setTos = setTos :+ { (_ : ConcreteUserInfo).last         setTo l.some }}
+    user.username.map(_.username)   .foreach { h  => setTos = setTos :+ { (_ : ConcreteUserInfo).username     setTo h.some }}
+    user.email.map(_.email)         .foreach { e  => setTos = setTos :+ { (_ : ConcreteUserInfo).email        setTo e.some }}
+    user.mobile.map(_.mobile)       .foreach { m  => setTos = setTos :+ { (_ : ConcreteUserInfo).mobile       setTo m.some }}
+    user.gender.map(_.value)        .foreach { g  => setTos = setTos :+ { (_ : ConcreteUserInfo).gender       setTo g.some }}
+    user.locale.map(_.value)        .foreach { l  => setTos = setTos :+ { (_ : ConcreteUserInfo).locale       setTo l.some }}
+    user.avatar.map(_.small)        .foreach { as => setTos = setTos :+ { (_ : ConcreteUserInfo).avatarsmall  setTo as.some }}
+    user.avatar.map(_.large)        .foreach { al => setTos = setTos :+ { (_ : ConcreteUserInfo).avatarlarge  setTo al.some }}
+    user.avatar.map(_.medium)       .foreach { am => setTos = setTos :+ { (_ : ConcreteUserInfo).avatarmedium setTo am.some }}
+    user.location.map(_.city)       .foreach { c  => setTos = setTos :+ { (_ : ConcreteUserInfo).city         setTo c.some }}
+    user.location.map(_.country)    .foreach { c  => setTos = setTos :+ { (_ : ConcreteUserInfo).country      setTo c.some }}
+
+    setTos match {
+      case MutableSeq() => None
+      case MutableSeq(x) => updateWhere.modify(x).some
+      case MutableSeq(head, tail @ _*) =>
+        tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) } some
+    }
+
   }
 
 }
