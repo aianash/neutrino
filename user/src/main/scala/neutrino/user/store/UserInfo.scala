@@ -2,6 +2,7 @@ package neutrino.user.store
 
 import scala.concurrent.Future
 import scala.collection.mutable.{Seq => MutableSeq}
+
 import scalaz._, Scalaz._
 import scalaz.std.option._
 import scalaz.syntax.monad._
