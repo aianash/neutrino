@@ -16,7 +16,7 @@ import neutrino.core.user._
 import neutrino.user.UserSettings
 
 
-sealed class FBAuthInfo extends CassandraTable[ConcreteFBAuthInfo, FBAuth] {
+sealed class UserByFBUId extends CassandraTable[ConcreteUserByFBUId, (UserId, FBAuth)] {
 
   override def tableName = "fb_auth_info"
 
@@ -30,36 +30,37 @@ sealed class FBAuthInfo extends CassandraTable[ConcreteFBAuthInfo, FBAuth] {
     val userIdV   = UserId(userId(row))
     // suffix V represents that string represents a variable
 
-    FBAuth(fbUserIdV, tokenV, userIdV)
+    (userIdV, FBAuth(fbUserIdV, tokenV))
   }
 
 }
 
 
-abstract class ConcreteFBAuthInfo(val settings: UserSettings) extends FBAuthInfo with UserConnector {
+abstract class ConcreteUserByFBUId(val settings: UserSettings) extends UserByFBUId with UserConnector {
 
-  def insertFBAuthInfo(info: FBAuth) = {
+  def insertUserByFBUId(userId: UserId, info: FBAuth) = {
     insert.value(_.fbUserId, info.fbUserId.id)
       .value(_.token, info.token.value)
-      .value(_.userId, info.userId.uuid)
+      .value(_.userId, userId.uuid)
+      .future()
   }
 
-  def getByFBUserId(id: FBUserId): Future[Option[FBAuth]] = {
+  def getByFBUId(id: FBUserId): Future[Option[(UserId, FBAuth)]] = {
     select.where(_.fbUserId eqs id.id).one()
   }
 
-  def updateFBAuthInfo(info: FBAuth) = {
+  def updateUserByFBUId(userId: UserId, info: FBAuth) = {
     val updateWhere = update.where(_.fbUserId eqs info.fbUserId.id)
-    var setTos = MutableSeq.empty[ConcreteFBAuthInfo => UpdateClause.Condition]
+    var setTos = MutableSeq.empty[ConcreteUserByFBUId => UpdateClause.Condition]
 
-    setTos = setTos :+ { (_ : ConcreteFBAuthInfo).token setTo info.token.value}
-    setTos = setTos :+ { (_ : ConcreteFBAuthInfo).userId setTo info.userId.uuid}
+    setTos = setTos :+ { (_ : ConcreteUserByFBUId).token setTo info.token.value}
+    setTos = setTos :+ { (_ : ConcreteUserByFBUId).userId setTo userId.uuid}
 
     setTos match {
       case MutableSeq() => None
-      case MutableSeq(x) => updateWhere.modify(x).some
+      case MutableSeq(x) => updateWhere.modify(x).future()
       case MutableSeq(head, tail @ _*) =>
-        tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) } some
+        (tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) }).future()
     }
   }
 

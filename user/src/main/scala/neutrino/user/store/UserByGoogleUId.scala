@@ -16,7 +16,7 @@ import neutrino.core.user._
 import neutrino.user.UserSettings
 
 
-sealed class GoogleAuthInfo extends CassandraTable[ConcreteGoogleAuthInfo, GoogleAuth] {
+sealed class UserByGoogleUId extends CassandraTable[ConcreteUserByGoogleUId, (UserId, GoogleAuth)] {
 
   override val tableName = "google_auth_info"
 
@@ -30,36 +30,37 @@ sealed class GoogleAuthInfo extends CassandraTable[ConcreteGoogleAuthInfo, Googl
     val userIdV       = UserId(userId(row))
     // suffix V represents that string represents a variable
 
-    GoogleAuth(googleUserIdV, tokenV, userIdV)
+    (userIdV, GoogleAuth(googleUserIdV, tokenV))
   }
 
 }
 
 
-abstract class ConcreteGoogleAuthInfo(val settings: UserSettings) extends GoogleAuthInfo with UserConnector {
+abstract class ConcreteUserByGoogleUId(val settings: UserSettings) extends UserByGoogleUId with UserConnector {
 
-  def insertGoogleAuthInfo(info: GoogleAuth) = {
+  def insertUserByGoogleUId(userId: UserId, info: GoogleAuth) = {
     insert.value(_.googleUserId, info.googleUserId.id)
       .value(_.token, info.token.value)
-      .value(_.userId, info.userId.uuid)
+      .value(_.userId, userId.uuid)
+      .future()
   }
 
-  def getByGoogleUserId(id: GoogleUserId): Future[Option[GoogleAuth]] = {
+  def getByGoogleUId(id: GoogleUserId): Future[Option[(UserId, GoogleAuth)]] = {
     select.where(_.googleUserId eqs id.id).one()
   }
 
-  def updateGoogleAuthInfo(info: GoogleAuth) = {
+  def updateUserByGoogleUId(userId: UserId, info: GoogleAuth) = {
     val updateWhere = update.where(_.googleUserId eqs info.googleUserId.id)
-    var setTos = MutableSeq.empty[ConcreteGoogleAuthInfo => UpdateClause.Condition]
+    var setTos = MutableSeq.empty[ConcreteUserByGoogleUId => UpdateClause.Condition]
 
-    setTos = setTos :+ { (_ : ConcreteGoogleAuthInfo).token setTo info.token.value}
-    setTos = setTos :+ { (_ : ConcreteGoogleAuthInfo).userId setTo info.userId.uuid}
+    setTos = setTos :+ { (_ : ConcreteUserByGoogleUId).token setTo info.token.value}
+    setTos = setTos :+ { (_ : ConcreteUserByGoogleUId).userId setTo userId.uuid}
 
     setTos match {
       case MutableSeq() => None
       case MutableSeq(x) => updateWhere.modify(x).some
       case MutableSeq(head, tail @ _*) =>
-        tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) } some
+        (tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) }).future()
     }
   }
 

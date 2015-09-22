@@ -1,43 +1,40 @@
 package neutrino.user.store
 
+import scala.concurrent.Future
 import scala.collection.mutable.{Seq => MutableSeq}
 
 import scalaz._, Scalaz._
 import scalaz.std.option._
 import scalaz.syntax.monad._
 
-import com.websudos.phantom.Implicits._
+import com.websudos.phantom.dsl._
+import com.websudos.phantom.builder.query.CQLQuery
+import com.websudos.phantom.builder.clauses.UpdateClause
 
-import com.datastax.driver.core.querybuilder.Assignment
-
-import com.goshoplane.common._
-import com.goshoplane.neutrino.shopplan._
-import com.goshoplane.neutrino.service._
-
+import neutrino.core.user.auth._
+import neutrino.core.user._
 import neutrino.user.UserSettings
 
-class UserByEmail(val settings: UserSettings)
-  extends CassandraTable[UserByEmail, UserId] with UserConnector {
 
-  override def tableName = "users_by_email"
+sealed class UserByEmail extends CassandraTable[UserByEmail, UserId] {
+
+  override def tableName = "user_by_email"
 
   // ids
   object email extends StringColumn(this) with PartitionKey[String]
-  object uuid extends LongColumn(this)
+  object userId extends LongColumn(this)
 
+  def fromRow(row: Row) = UserId(userId(row))
 
-  def fromRow(row: Row) = UserId(uuid(row))
+}
 
+abstract class ConcreteUserByEmail(val settings: UserSettings) extends UserByEmail with UserConnector {
 
-  def insertEmail(userId: UserId, email: String) =
-    insert
-      .value(_.email,         email)
-      .value(_.uuid,          userId.uuid)
-
+  def insertEmail(userId: UserId, email: Email) =
+    insert.value(_.email, email.email)
+      .value(_.userId, userId.uuid)
+      .future()
 
   def getUserIdBy(email: String) = select.where(_.email eqs email)
 
-
-  def deleteEmail(email: String) =
-    delete.where(_.email eqs email)
 }

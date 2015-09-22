@@ -32,13 +32,12 @@ sealed class UserAuthInfo extends CassandraTable[ConcreteUserAuthInfo, UserAuth]
   object googleAuthToken extends OptionalStringColumn(this)
 
   def fromRow(row: Row) = {
-    val userId           = UserId(uuid(row))
     val fbUserIdO        = fbUserId(row).map(FBUserId(_))
     val fbAuthTokenO     = fbAuthToken(row).map(FBAuthToken(_))
     val googleUserIdO    = googleUserId(row).map(GoogleUserId(_))
     val googleAuthTokenO = googleAuthToken(row).map(GoogleAuthToken(_))
 
-    UserAuth(userId, fbUserIdO, fbAuthTokenO, googleUserIdO, googleAuthTokenO)
+    UserAuth(fbUserIdO, fbAuthTokenO, googleUserIdO, googleAuthTokenO)
   }
 
 }
@@ -46,20 +45,21 @@ sealed class UserAuthInfo extends CassandraTable[ConcreteUserAuthInfo, UserAuth]
 
 abstract class ConcreteUserAuthInfo(val settings: UserSettings) extends UserAuthInfo with UserConnector {
 
-  def insertUserAuthInfo(info: UserAuth) = {
-    insert.value(_.uuid, info.userId.uuid)
+  def insertUserAuthInfo(userId: UserId, info: UserAuth) = {
+    insert.value(_.uuid, userId.uuid)
       .value(_.fbUserId, info.fbUserId.map(_.id))
       .value(_.fbAuthToken, info.fbAuthToken.map(_.value))
       .value(_.googleUserId, info.googleUserId.map(_.id))
       .value(_.googleAuthToken, info.googleAuthToken.map(_.value))
+      .future()
   }
 
   def getByUserId(id: UserId): Future[Option[UserAuth]] = {
     select.where(_.uuid eqs id.uuid).one()
   }
 
-  def updateUserAuthInfo(info: UserAuth) = {
-    val updateWhere = update.where(_.uuid eqs info.userId.uuid)
+  def updateUserAuthInfo(userId: UserId, info: UserAuth) = {
+    val updateWhere = update.where(_.uuid eqs userId.uuid)
     var setTos = MutableSeq.empty[ConcreteUserAuthInfo => UpdateClause.Condition]
 
     info.fbUserId.map(_.id)             .foreach { fid => setTos = setTos :+ { (_ : ConcreteUserAuthInfo).fbUserId setTo fid.some }}
@@ -69,9 +69,9 @@ abstract class ConcreteUserAuthInfo(val settings: UserSettings) extends UserAuth
 
     setTos match {
       case MutableSeq() => None
-      case MutableSeq(x) => updateWhere.modify(x).some
+      case MutableSeq(x) => updateWhere.modify(x).future()
       case MutableSeq(head, tail @ _*) =>
-        tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) } some
+        (tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) }).future()
     }
   }
 }

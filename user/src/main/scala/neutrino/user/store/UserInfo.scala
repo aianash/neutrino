@@ -55,8 +55,6 @@ sealed class UserInfo extends CassandraTable[ConcreteUserInfo, User] {
 
 
   def fromRow(row: Row) = {
-    val userId = UserId(uuid(row))
-
     val usernameO = username(row).map(d => Username(d))
 
     val displayNameO = 
@@ -87,7 +85,7 @@ sealed class UserInfo extends CassandraTable[ConcreteUserInfo, User] {
 
     val userType = UserType(usertype(row))
 
-    User(userId, usernameO, displayNameO, emailO, mobileO, avatarO, genderO, localeO, locationO, userType)
+    User(usernameO, displayNameO, emailO, mobileO, avatarO, genderO, localeO, locationO, userType)
   }
 
 }
@@ -95,8 +93,8 @@ sealed class UserInfo extends CassandraTable[ConcreteUserInfo, User] {
 
 abstract class ConcreteUserInfo(val settings: UserSettings) extends UserInfo with UserConnector {
 
-  def insertUserInfo(user: User) = {
-    insert.value(_.uuid, user.userId.uuid)
+  def insertUserInfo(userId: UserId, user: User) = {
+    insert.value(_.uuid, userId.uuid)
       .value(_.username, user.username.map(_.username))
       .value(_.first, user.name.map(_.first))
       .value(_.last, user.name.map(_.last))
@@ -110,14 +108,15 @@ abstract class ConcreteUserInfo(val settings: UserSettings) extends UserInfo wit
       .value(_.avatarsmall, user.avatar.map(_.small))
       .value(_.avatarmedium, user.avatar.map(_.medium))
       .value(_.avatarlarge, user.avatar.map(_.large))
+      .future()
   }
 
   def getByUserId(id: UserId): Future[Option[User]] = {
     select.where(_.uuid eqs id.uuid).one()
   }
 
-  def updateUserInfo(user: User) = {
-    val updateWhere = update.where(_.uuid eqs user.userId.uuid)
+  def updateUserInfo(userId: UserId, user: User) = {
+    val updateWhere = update.where(_.uuid eqs userId.uuid)
     var setTos = MutableSeq.empty[ConcreteUserInfo => UpdateClause.Condition]
 
     user.name.map(_.first)          .foreach { f  => setTos = setTos :+ { (_ : ConcreteUserInfo).first        setTo f.some }}
@@ -135,9 +134,9 @@ abstract class ConcreteUserInfo(val settings: UserSettings) extends UserInfo wit
 
     setTos match {
       case MutableSeq() => None
-      case MutableSeq(x) => updateWhere.modify(x).some
+      case MutableSeq(x) => updateWhere.modify(x).future()
       case MutableSeq(head, tail @ _*) =>
-        tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) } some
+        (tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) }).future()
     }
 
   }

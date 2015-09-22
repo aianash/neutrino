@@ -9,7 +9,6 @@ case class GoogleAuthToken(value: String)
 
 // user auth info
 case class UserAuth(
-  userId          : UserId,
   fbUserId        : Option[FBUserId],
   fbAuthToken     : Option[FBAuthToken],
   googleUserId    : Option[GoogleUserId],
@@ -19,14 +18,12 @@ case class UserAuth(
 // Fb auth info
 case class FBAuth(
   fbUserId : FBUserId,
-  token    : FBAuthToken,
-  userId   : UserId
+  token    : FBAuthToken
   )
 
 // Google auth info
 case class GoogleAuth(
   googleUserId : GoogleUserId,
-  token        : GoogleAuthToken,
-  userId       : UserId
+  token        : GoogleAuthToken
   )
 

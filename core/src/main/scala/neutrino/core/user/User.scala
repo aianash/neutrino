@@ -13,7 +13,6 @@ case class UserType(value: String)
 
 
 case class User(
-  userId   : UserId,
   username : Option[Username],
   name     : Option[DisplayName],
   email    : Option[Email],

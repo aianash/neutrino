@@ -1,16 +1,20 @@
 package neutrino.user.protocols
 
-import com.goshoplane.common._
-import com.goshoplane.neutrino.shopplan._
-import com.goshoplane.neutrino.service._
-
-
 import goshoplane.commons.core.protocols.Replyable
+
+import neutrino.core.user._
+import neutrino.core.user.auth._
 
 sealed trait UserAccountMessages
 
-case class CreateOrUpdateUser(userInfo: UserInfo) extends UserAccountMessages with Replyable[UserId]
-case class UpdateUser(userId: UserId, userInfo: UserInfo) extends UserAccountMessages with Replyable[Boolean]
-case class GetUserDetail(userId: UserId) extends UserAccountMessages with Replyable[UserInfo]
-case class GetFriendsForInvite(userId: UserId, filter: FriendListFilter) extends UserAccountMessages with Replyable[Seq[Friend]]
-case class GetFriendsDetails(userId: UserId, friendIds: Seq[UserId]) extends UserAccountMessages with Replyable[Seq[Friend]]
+// create
+case class CreateOrUpdateUserWithFB(userInfo: User, fbInfo: FBAuth) extends UserAccountMessages with Replyable[UserId]
+case class CreateOrUpdateUserWithGoogle(userInfo: User, googleInfo: GoogleAuth) extends UserAccountMessages with Replyable[UserId]
+
+// update
+case class UpdateUserInfo(userInfo: User) extends UserAccountMessages with Replyable[Boolean]
+case class UpdateGoogleInfo(googleInfo: GoogleAuth) extends UserAccountMessages with Replyable[Boolean]
+case class UpdateFBInfo(gbInfo: FBAuth) extends UserAccountMessages with Replyable[Boolean]
+
+// read
+case class GetUserDetail(userId: UserId) extends UserAccountMessages with Replyable[User]
