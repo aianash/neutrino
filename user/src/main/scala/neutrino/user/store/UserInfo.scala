@@ -91,9 +91,9 @@ sealed class UserInfo extends CassandraTable[ConcreteUserInfo, User] {
 }
 
 
-abstract class ConcreteUserInfo(val settings: UserSettings) extends UserInfo with UserConnector {
+abstract class ConcreteUserInfo(val settings: UserSettings) extends UserInfo {
 
-  def insertUserInfo(userId: UserId, user: User) = {
+  def insertUserInfo(userId: UserId, user: User)(implicit keySpace: KeySpace) =
     insert.value(_.uuid, userId.uuid)
       .value(_.username, user.username.map(_.username))
       .value(_.first, user.name.map(_.first))
@@ -108,14 +108,11 @@ abstract class ConcreteUserInfo(val settings: UserSettings) extends UserInfo wit
       .value(_.avatarsmall, user.avatar.map(_.small))
       .value(_.avatarmedium, user.avatar.map(_.medium))
       .value(_.avatarlarge, user.avatar.map(_.large))
-      .future()
-  }
 
-  def getByUserId(id: UserId): Future[Option[User]] = {
-    select.where(_.uuid eqs id.uuid).one()
-  }
+  def getByUserId(id: UserId)(implicit keySpace: KeySpace) =
+    select.where(_.uuid eqs id.uuid)
 
-  def updateUserInfo(userId: UserId, user: User) = {
+  def updateUserInfo(userId: UserId, user: User)(implicit keySpace: KeySpace) = {
     val updateWhere = update.where(_.uuid eqs userId.uuid)
     var setTos = MutableSeq.empty[ConcreteUserInfo => UpdateClause.Condition]
 
@@ -134,9 +131,9 @@ abstract class ConcreteUserInfo(val settings: UserSettings) extends UserInfo wit
 
     setTos match {
       case MutableSeq() => None
-      case MutableSeq(x) => updateWhere.modify(x).future()
+      case MutableSeq(x) => updateWhere.modify(x).some
       case MutableSeq(head, tail @ _*) =>
-        (tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) }).future()
+        (tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) }).some
     }
 
   }

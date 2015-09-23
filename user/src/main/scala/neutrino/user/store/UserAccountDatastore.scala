@@ -11,61 +11,71 @@ import com.websudos.phantom.dsl._
 
 import neutrino.user._
 import neutrino.core.user._
-import neutrino.core.user.auth._
+import neutrino.core.auth._
 
 
 sealed class UserAccountDatastore(val settings: UserSettings) extends UserConnector {
 
   object UserInfo extends ConcreteUserInfo(settings)
-  object UserByFBUId extends ConcreteUserByFBUId(settings)
-  object UserByGoogleUId extends ConcreteUserByGoogleUId(settings)
-  object UserByEmail extends ConcreteUserByEmail(settings)
+  object ExternalAccountInfo extends ConcreteExternalAccountInfo(settings)
 
-  def init(): Unit = {
-    val creation = Future {
+  /**
+   * To initialize cassandra tables
+   */
+  def init(): Boolean = {
+    val creation =
       for {
-        _ <- UserInfo.create.execute()
-        _ <- UserByFBUId.create.execute()
-        _ <- UserByGoogleUId.create.execute()
-        _ <- UserByEmail.create.execute()
+        _ <- UserInfo.create.ifNotExists.future()
+        _ <- ExternalAccountInfo.create.ifNotExists.future()
       } yield true
-    }
 
-    Await.ready(creation, 2 seconds)
+    Await.result(creation, 2 seconds)
   }
 
-  def checkIfExistingUser(user: User): Future[Option[UserId]] = ???
+  /**
+   * Function to insert user info
+   * @param userId UserId
+   * @param user User
+   */
+  def insertUserInfo(userId: UserId, user: User) =
+    UserInfo.insertUserInfo(userId, user).future().map(_ => true)
 
-  def getUserInfo(userId: UserId) = UserInfo.getByUserId(userId).map(_.get)
+  /**
+   * Function to insert external account info
+   * @param userId UserId
+   * @param info ExternalAccountInfo
+   */
+  def insertExternalAccountInfo(userId: UserId, info: ExternalAccount) =
+    ExternalAccountInfo.insertExternalAccountInfo(userId, info).future().map(_ => true)
 
-  def createUserWithFB(userId: UserId, user: User, fbInfo: FBAuth) = {
-    val emailF =
-      user.email.map(UserByEmail.insertEmail(userId, _).map(_ => true))
-        .getOrElse(Future.successful(true))
+  /**
+   * Function to get user info for given user id
+   * @param userId UserId
+   * @return Future[Option[User]]
+   */
+  def getUserInfo(userId: UserId) = UserInfo.getByUserId(userId).one()
 
-    for {
-      ui    <- UserInfo.insertUserInfo(userId, user)
-      fbi   <- UserByFBUId.insertUserByFBUId(userId, fbInfo)
-      email <- emailF
-    } yield email
-  }
+  /**
+   * Function to get external account info for a given user id
+   * @param userId UserId
+   * @return Future[Option[ExternalAccount]]
+   */
+  def getExternalAccountInfo(userId: UserId) = ExternalAccountInfo.getByUserId(userId).one()
 
-  def createUserWithGoogle(userId: UserId, user: User, googleInfo: GoogleAuth) = {
-    val emailF =
-      user.email.map(UserByEmail.insertEmail(userId, _).map(_ => true))
-        .getOrElse(Future.successful(true))
+  /**
+   * Function to update user info
+   * @param userId UserId
+   * @param user User
+   */
+  def updateUserInfo(userId: UserId, user: User) =
+    UserInfo.updateUserInfo(userId, user).map(_.future().map(_ => true)).getOrElse(Future.successful(true))
 
-    for {
-      ui        <- UserInfo.insertUserInfo(userId, user)
-      googlei   <- UserByGoogleUId.insertUserByGoogleUId(userId, googleInfo)
-      email     <- emailF
-    } yield email
-  }
-
-  def updateUserInfo(user: User): Future[UserId] = ???
-
-  def updateFBInfo(info: FBAuth): Future[FBUserId] = ???
-
-  def updateGoogleInfo(info: GoogleAuth): Future[GoogleUserId] = ???
+  /**
+   * Function to update external account info
+   * @param userId UserId
+   * @param user User
+   */
+  def updateExternalAccountInfo(userId: UserId, info: ExternalAccount) =
+    ExternalAccountInfo.updateExternalAccountInfo(userId, info).map(_.future().map(_ => true)).getOrElse(Future.successful(true))
 
 }
