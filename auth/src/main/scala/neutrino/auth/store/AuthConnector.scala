@@ -1,12 +1,12 @@
-package neutrino.user.store
+package neutrino.auth.store
 
-import neutrino.user.UserSettings
+import neutrino.auth.AuthSettings
 
 import com.websudos.phantom.connectors.{SimpleConnector, ContactPoint, KeySpace}
 
-trait UserConnector extends SimpleConnector {
+trait AuthConnector extends SimpleConnector {
 
-  def settings: UserSettings
+  def settings: AuthSettings
 
   implicit val keySpace = KeySpace(settings.CassandraKeyspace)
 

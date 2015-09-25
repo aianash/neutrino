@@ -64,7 +64,8 @@ object NeutrinoBuild extends Build with StandardLibraries {
       ++ Libs.scaldi
       ++ Libs.restFb
       ++ Libs.playJson
-  ).dependsOn(core)
+      ++ Libs.phantom
+  ).dependsOn(core, user)
 
   lazy val user = Project(
     id = "neutrino-user",
