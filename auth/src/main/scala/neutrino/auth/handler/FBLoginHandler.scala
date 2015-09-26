@@ -53,7 +53,7 @@ class FBLoginHandler(authInfo: FBAuthInfo, fbAuthDatastore: FBAuthDatastore) ext
     userInfo
   }
 
-  def updateAuthTable(userId: UserId, userInfo: User) = {
+  def updateAuthTable(userId: UserId, userInfo: UserInfo) = {
     val email = userInfo.email.get
     val emailInfo = EmailAuthInfo(email, Some(authInfo.fbUserId), None)
     fbAuthDatastore.addFBAuthenticationInfo(userId, authInfo, emailInfo)
@@ -96,7 +96,7 @@ class FBLoginHandler(authInfo: FBAuthInfo, fbAuthDatastore: FBAuthDatastore) ext
         large  <- (picturejson \ "data" \ "url").asOpt[String]
       } yield UserAvatar(small, medium, large)
 
-    User(None, displayname, email, mobile, avatar, gender, locale, location, usertype)
+    UserInfo(None, displayname, email, mobile, avatar, gender, locale, location, usertype)
   }
 
 }

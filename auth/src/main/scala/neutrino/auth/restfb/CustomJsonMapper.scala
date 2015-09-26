@@ -61,7 +61,7 @@ class CustomJsonMapper extends JsonMapper {
         large  <- (picturejson \ "data" \ "url").asOpt[String]
       } yield UserAvatar(small, medium, large)
 
-    User(None, displayname, email, mobile, avatar, gender, locale, location, usertype)
+    UserInfo(None, displayname, email, mobile, avatar, gender, locale, location, usertype)
   }
 
 }

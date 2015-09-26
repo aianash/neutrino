@@ -34,7 +34,7 @@ object UserType {
 
 }
 
-case class User(
+case class UserInfo (
   username : Option[Username],
   name     : Option[DisplayName],
   email    : Option[Email],
@@ -44,4 +44,6 @@ case class User(
   locale   : Option[Locale],
   location : Option[Location],
   usertype : UserType
-  )
+)
+
+case class User(id: UserId, info: UserInfo)

@@ -14,8 +14,8 @@ import neutrino.user.protocols._
 
 object TestUserInfo {
 
-  val user =
-    User(
+  val info =
+    UserInfo(
       Some(Username("neerajgangwar")),
       Some(DisplayName("Neeraj Updated", "Gangwar")),
       Some(Email("y.neeraj2008@gmail.com")),
@@ -27,14 +27,13 @@ object TestUserInfo {
       UserType("registered")
       )
 
-  val info =
-    ExternalAccountInfo(Some(FBUserId(1000000000L)), Some(FBAuthToken("okasjbdvasdkbaskjdbakjdbakjdbadba")), None, None)
+  val user = User(UserId(13433112313L), info)
 
   def main(args: Array[String]) {
     val system = ActorSystem("test")
     val supervisor = system.actorOf(UserAccountSupervisor.props)
 
-    supervisor ! UpdateUserInfo(UserId(18181671627169L), user)
+    supervisor ! UpdateUser(user)
   }
 
 }

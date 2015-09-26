@@ -16,7 +16,7 @@ import neutrino.core.auth._
 
 sealed class UserAccountDatastore(val settings: UserSettings) extends UserConnector {
 
-  object UserInfos extends ConcreteUserInfos(settings)
+  object Users extends ConcreteUsers(settings)
   object ExternalAccountInfos extends ConcreteExternalAccountInfos(settings)
 
   /**
@@ -25,7 +25,7 @@ sealed class UserAccountDatastore(val settings: UserSettings) extends UserConnec
   def init(): Boolean = {
     val creation =
       for {
-        _ <- UserInfos.create.ifNotExists.future()
+        _ <- Users.create.ifNotExists.future()
         _ <- ExternalAccountInfos.create.ifNotExists.future()
       } yield true
 
@@ -37,8 +37,8 @@ sealed class UserAccountDatastore(val settings: UserSettings) extends UserConnec
    * @param userId UserId
    * @param user User
    */
-  def insertUserInfo(userId: UserId, user: User) =
-    UserInfos.insertUserInfo(userId, user).future().map(_ => true)
+  def insertUser(user: User) =
+    Users.insertUser(user).future().map(_ => true)
 
   /**
    * Function to insert external account info
@@ -53,7 +53,7 @@ sealed class UserAccountDatastore(val settings: UserSettings) extends UserConnec
    * @param userId UserId
    * @return Future[Option[User]]
    */
-  def getUserInfo(userId: UserId) = UserInfos.getByUserId(userId).one()
+  def getUser(userId: UserId) = Users.getUserByUserId(userId).one()
 
   /**
    * Function to get external account info for a given user id
@@ -67,8 +67,8 @@ sealed class UserAccountDatastore(val settings: UserSettings) extends UserConnec
    * @param userId UserId
    * @param user User
    */
-  def updateUserInfo(userId: UserId, user: User) =
-    UserInfos.updateUserInfo(userId, user).map(_.future().map(_ => true)).getOrElse(Future.successful(true))
+  def updateUser(user: User) =
+    Users.updateUser(user).map(_.future().map(_ => true)).getOrElse(Future.successful(true))
 
   /**
    * Function to update external account info

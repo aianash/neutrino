@@ -35,20 +35,20 @@ class UserAccountSupervisor extends Actor with ActorLogging {
 
   def receive = {
 
-    case InsertUserInfo(userId, user, info) =>
+    case InsertUser(user, extAccinfo) =>
       for {
-        u <- userAccDatastore.insertUserInfo(userId, user)
-        e <- userAccDatastore.insertExternalAccountInfo(userId, info)
+        u <- userAccDatastore.insertUser(user)
+        e <- userAccDatastore.insertExternalAccountInfo(user.id, extAccinfo)
       } yield true
 
-    case UpdateUserInfo(userId, info) =>
-      userAccDatastore.updateUserInfo(userId, info)
+    case UpdateUser(user) =>
+      userAccDatastore.updateUser(user)
 
     case UpdateExternalAccountInfo(userId, info) =>
       userAccDatastore.updateExternalAccountInfo(userId, info)
 
-    case GetUserInfo(userId) =>
-      userAccDatastore.getUserInfo(userId) pipeTo sender()
+    case GetUser(userId) =>
+      userAccDatastore.getUser(userId) pipeTo sender()
 
     case GetExternalAccountInfo(userId) =>
       userAccDatastore.getExternalAccountInfo(userId) pipeTo sender()

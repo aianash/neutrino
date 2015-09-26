@@ -63,15 +63,15 @@ class AuthenticationSupervisor extends Actor with ActorLogging {
                   userId   <- uuidF.map(UserId(_))
                   userInfo <- handler.getUserInfo
                   success  <- handler.updateAuthTable(userId, userInfo) if success
-                } yield (userId, userInfo))
+                } yield User(userId, userInfo))
                   .andThen {
                     case Failure(NonFatal(ex)) =>
                       log.error(ex, "Caught error [{}] while creating new user", ex)
                       sender() ! AuthStatus.Failure
                   }
-                  .foreach { case (userId, userInfo) =>
-                    userAccount ! InsertUserInfo(userId, userInfo, handler.getExternalAccountInfo)
-                    sender() ! AuthStatus.Success(userId, UserType.REGISTERED)
+                  .foreach { case user: User =>
+                    userAccount ! InsertUser(user, handler.getExternalAccountInfo)
+                    sender() ! AuthStatus.Success(user.id, UserType.REGISTERED)
                   }
             }
 

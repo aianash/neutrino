@@ -16,7 +16,7 @@ import neutrino.core.user._
 import neutrino.user.UserSettings
 
 
-sealed class ExternalAccountInfos extends CassandraTable[ConcreteExternalAccountInfos, ExternalAccountInfo] {
+sealed class ExternalAccountInfos extends CassandraTable[ConcreteExternalAccountInfos, (UserId, ExternalAccountInfo)] {
 
   override def tableName = "external_account_infos"
 
@@ -32,12 +32,13 @@ sealed class ExternalAccountInfos extends CassandraTable[ConcreteExternalAccount
   object googleAuthToken extends OptionalStringColumn(this)
 
   def fromRow(row: Row) = {
+    val userId           = UserId(uuid(row))
     val fbUserIdO        = fbUserId(row).map(FBUserId(_))
     val fbAuthTokenO     = fbAuthToken(row).map(FBAuthToken(_))
     val googleUserIdO    = googleUserId(row).map(GoogleUserId(_))
     val googleAuthTokenO = googleAuthToken(row).map(GoogleAuthToken(_))
 
-    ExternalAccountInfo(fbUserIdO, fbAuthTokenO, googleUserIdO, googleAuthTokenO)
+    (userId, ExternalAccountInfo(fbUserIdO, fbAuthTokenO, googleUserIdO, googleAuthTokenO))
   }
 
 }
