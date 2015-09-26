@@ -16,9 +16,9 @@ import neutrino.core.user._
 import neutrino.auth.AuthSettings
 
 
-sealed class AuthByEmail extends CassandraTable[AuthByEmail, (UserId, EmailAuthInfo)] {
+sealed class EmailAuthInfos extends CassandraTable[EmailAuthInfos, (UserId, EmailAuthInfo)] {
 
-  override def tableName = "auth_by_email"
+  override def tableName = "email_auth_infos"
 
   // ids
   object email extends StringColumn(this) with PartitionKey[String]
@@ -35,7 +35,7 @@ sealed class AuthByEmail extends CassandraTable[AuthByEmail, (UserId, EmailAuthI
 
 }
 
-abstract class ConcreteAuthByEmail(val settings: AuthSettings) extends AuthByEmail {
+abstract class ConcreteEmailAuthInfos(val settings: AuthSettings) extends EmailAuthInfos {
 
   def insertEmailAuthInfo(userId: UserId, info: EmailAuthInfo)(implicit keySpace: KeySpace) =
     insert.value(_.email, info.email.email)

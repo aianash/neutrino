@@ -28,7 +28,7 @@ object TestUserInfo {
       )
 
   val info =
-    ExternalAccount(Some(FBUserId(1000000000L)), Some(FBAuthToken("okasjbdvasdkbaskjdbakjdbakjdbadba")), None, None)
+    ExternalAccountInfo(Some(FBUserId(1000000000L)), Some(FBAuthToken("okasjbdvasdkbaskjdbakjdbakjdbadba")), None, None)
 
   def main(args: Array[String]) {
     val system = ActorSystem("test")

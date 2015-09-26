@@ -19,7 +19,7 @@ object TestAuth {
     val as = AuthenticationSupervisor.props
     val supervisor = system.actorOf(as)
 
-    val authToken = "CAALYIU6LOQsBAIfQaIPVpabZCyiYWZC7oByu5QoUg8xb6ydZAjkdk9uEO9ZBothGg7mHVa8uMfWpc6jZCceH2yhZC26DN1VHV0G9i26fQS4n2FyNANXIJDO7j5VoDOZBC85X8jc314z6yTDCGZAPJhxDjG5uPkUcTcxSVPl9rbTIAPeRVZBuXOntKBeRH7wsbbBbofSJTxGqjoOZCMethVM8pV"
+    val authToken = "CAALYIU6LOQsBAKUq42VDuRglLPBu6LFnmKmqIuR5gvwvmiZCD1cjyDDVO9vh7VGxxvMYImU4xtwDFItjVZBYszBz4s53An2dwRrRxwinmIGwdHV0swx9QFVJisaV3UJhcYfi28DDZCoJvC8X5lS0hiTyZBozNDdeuXuWad46oHM7UJf1GxZBaPrjvkve6wodb8m5CHaIdIor0pchVansu"
     val fbUserId = new FBUserId(947459488606587L)
     val appId = "800587516688651"
 

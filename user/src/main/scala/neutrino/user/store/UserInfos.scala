@@ -15,9 +15,9 @@ import neutrino.core.user._
 import neutrino.user._
 
 
-sealed class UserInfo extends CassandraTable[ConcreteUserInfo, User] {
+sealed class UserInfos extends CassandraTable[ConcreteUserInfos, User] {
 
-  override def tableName = "user_info"
+  override def tableName = "user_infos"
 
   // ids
   object uuid extends LongColumn(this) with PartitionKey[Long]
@@ -91,7 +91,7 @@ sealed class UserInfo extends CassandraTable[ConcreteUserInfo, User] {
 }
 
 
-abstract class ConcreteUserInfo(val settings: UserSettings) extends UserInfo {
+abstract class ConcreteUserInfos(val settings: UserSettings) extends UserInfos {
 
   def insertUserInfo(userId: UserId, user: User)(implicit keySpace: KeySpace) =
     insert.value(_.uuid, userId.uuid)
@@ -114,20 +114,20 @@ abstract class ConcreteUserInfo(val settings: UserSettings) extends UserInfo {
 
   def updateUserInfo(userId: UserId, user: User)(implicit keySpace: KeySpace) = {
     val updateWhere = update.where(_.uuid eqs userId.uuid)
-    var setTos = MutableSeq.empty[ConcreteUserInfo => UpdateClause.Condition]
+    var setTos = MutableSeq.empty[ConcreteUserInfos => UpdateClause.Condition]
 
-    user.name.map(_.first)          .foreach { f  => setTos = setTos :+ { (_ : ConcreteUserInfo).first        setTo f.some }}
-    user.name.map(_.last)           .foreach { l  => setTos = setTos :+ { (_ : ConcreteUserInfo).last         setTo l.some }}
-    user.username.map(_.username)   .foreach { h  => setTos = setTos :+ { (_ : ConcreteUserInfo).username     setTo h.some }}
-    user.email.map(_.email)         .foreach { e  => setTos = setTos :+ { (_ : ConcreteUserInfo).email        setTo e.some }}
-    user.mobile.map(_.mobile)       .foreach { m  => setTos = setTos :+ { (_ : ConcreteUserInfo).mobile       setTo m.some }}
-    user.gender.map(_.value)        .foreach { g  => setTos = setTos :+ { (_ : ConcreteUserInfo).gender       setTo g.some }}
-    user.locale.map(_.value)        .foreach { l  => setTos = setTos :+ { (_ : ConcreteUserInfo).locale       setTo l.some }}
-    user.avatar.map(_.small)        .foreach { as => setTos = setTos :+ { (_ : ConcreteUserInfo).avatarsmall  setTo as.some }}
-    user.avatar.map(_.large)        .foreach { al => setTos = setTos :+ { (_ : ConcreteUserInfo).avatarlarge  setTo al.some }}
-    user.avatar.map(_.medium)       .foreach { am => setTos = setTos :+ { (_ : ConcreteUserInfo).avatarmedium setTo am.some }}
-    user.location.map(_.city)       .foreach { c  => setTos = setTos :+ { (_ : ConcreteUserInfo).city         setTo c.some }}
-    user.location.map(_.country)    .foreach { c  => setTos = setTos :+ { (_ : ConcreteUserInfo).country      setTo c.some }}
+    user.name.map(_.first)          .foreach { f  => setTos = setTos :+ { (_ : ConcreteUserInfos).first        setTo f.some }}
+    user.name.map(_.last)           .foreach { l  => setTos = setTos :+ { (_ : ConcreteUserInfos).last         setTo l.some }}
+    user.username.map(_.username)   .foreach { h  => setTos = setTos :+ { (_ : ConcreteUserInfos).username     setTo h.some }}
+    user.email.map(_.email)         .foreach { e  => setTos = setTos :+ { (_ : ConcreteUserInfos).email        setTo e.some }}
+    user.mobile.map(_.mobile)       .foreach { m  => setTos = setTos :+ { (_ : ConcreteUserInfos).mobile       setTo m.some }}
+    user.gender.map(_.value)        .foreach { g  => setTos = setTos :+ { (_ : ConcreteUserInfos).gender       setTo g.some }}
+    user.locale.map(_.value)        .foreach { l  => setTos = setTos :+ { (_ : ConcreteUserInfos).locale       setTo l.some }}
+    user.avatar.map(_.small)        .foreach { as => setTos = setTos :+ { (_ : ConcreteUserInfos).avatarsmall  setTo as.some }}
+    user.avatar.map(_.large)        .foreach { al => setTos = setTos :+ { (_ : ConcreteUserInfos).avatarlarge  setTo al.some }}
+    user.avatar.map(_.medium)       .foreach { am => setTos = setTos :+ { (_ : ConcreteUserInfos).avatarmedium setTo am.some }}
+    user.location.map(_.city)       .foreach { c  => setTos = setTos :+ { (_ : ConcreteUserInfos).city         setTo c.some }}
+    user.location.map(_.country)    .foreach { c  => setTos = setTos :+ { (_ : ConcreteUserInfos).country      setTo c.some }}
 
     setTos match {
       case MutableSeq() => None

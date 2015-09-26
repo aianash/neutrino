@@ -16,8 +16,9 @@ import neutrino.auth._
 
 class FBAuthDatastore(val settings: AuthSettings) extends AuthConnector {
 
-  object AuthByEmail extends ConcreteAuthByEmail(settings)
-  object AuthByFBUId extends ConcreteAuthByFBUId(settings)
+  object EmailAuthInfos extends ConcreteEmailAuthInfos(settings)
+  object FBAuthInfos extends ConcreteFBAuthInfos(settings)
+
 
   /**
    * To initialize cassandra tables
@@ -25,24 +26,24 @@ class FBAuthDatastore(val settings: AuthSettings) extends AuthConnector {
   def init(): Boolean = {
     val creation =
       for {
-        _ <- AuthByEmail.create.ifNotExists.future()
-        _ <- AuthByFBUId.create.ifNotExists.future()
+        _ <- EmailAuthInfos.create.ifNotExists.future()
+        _ <- FBAuthInfos.create.ifNotExists.future()
       } yield true
 
     Await.result(creation, 2 seconds)
   }
 
   def getUserId(fbUserId: FBUserId, email: Email) = {
-    AuthByEmail.getUserIdByEmail(email).one().filter(!_.isEmpty).recoverWith {
+    EmailAuthInfos.getUserIdByEmail(email).one().filter(!_.isEmpty).recoverWith {
       case _: NoSuchElementException =>
-        AuthByFBUId.getUserIdByFBUId(fbUserId).one()
+        FBAuthInfos.getUserIdByFBUId(fbUserId).one()
     } map(_.map(UserId(_)))
   }
 
   def addFBAuthenticationInfo(userId: UserId, fbAuthInfo: FBAuthInfo, emailInfo: EmailAuthInfo) =
     Batch.logged
-      .add(AuthByFBUId.insertFBAuthInfo(userId, fbAuthInfo))
-      .add(AuthByEmail.insertEmailAuthInfo(userId, emailInfo))
+      .add(FBAuthInfos.insertFBAuthInfo(userId, fbAuthInfo))
+      .add(EmailAuthInfos.insertEmailAuthInfo(userId, emailInfo))
       .future().map(_ => true)
 
 }

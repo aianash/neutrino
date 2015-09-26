@@ -16,9 +16,9 @@ import neutrino.core.user._
 import neutrino.user.UserSettings
 
 
-sealed class ExternalAccountInfo extends CassandraTable[ConcreteExternalAccountInfo, ExternalAccount] {
+sealed class ExternalAccountInfos extends CassandraTable[ConcreteExternalAccountInfos, ExternalAccountInfo] {
 
-  override def tableName = "external_account_info"
+  override def tableName = "external_account_infos"
 
   // ids
   object uuid extends LongColumn(this) with PartitionKey[Long]
@@ -37,15 +37,15 @@ sealed class ExternalAccountInfo extends CassandraTable[ConcreteExternalAccountI
     val googleUserIdO    = googleUserId(row).map(GoogleUserId(_))
     val googleAuthTokenO = googleAuthToken(row).map(GoogleAuthToken(_))
 
-    ExternalAccount(fbUserIdO, fbAuthTokenO, googleUserIdO, googleAuthTokenO)
+    ExternalAccountInfo(fbUserIdO, fbAuthTokenO, googleUserIdO, googleAuthTokenO)
   }
 
 }
 
 
-abstract class ConcreteExternalAccountInfo(val settings: UserSettings) extends ExternalAccountInfo {
+abstract class ConcreteExternalAccountInfos(val settings: UserSettings) extends ExternalAccountInfos {
 
-  def insertExternalAccountInfo(userId: UserId, info: ExternalAccount)(implicit keySpace: KeySpace) =
+  def insertExternalAccountInfo(userId: UserId, info: ExternalAccountInfo)(implicit keySpace: KeySpace) =
     insert.value(_.uuid, userId.uuid)
       .value(_.fbUserId, info.fbUserId.map(_.id))
       .value(_.fbAuthToken, info.fbAuthToken.map(_.value))
@@ -55,14 +55,14 @@ abstract class ConcreteExternalAccountInfo(val settings: UserSettings) extends E
   def getByUserId(id: UserId)(implicit keySpace: KeySpace) =
     select.where(_.uuid eqs id.uuid)
 
-  def updateExternalAccountInfo(userId: UserId, info: ExternalAccount)(implicit keySpace: KeySpace) = {
+  def updateExternalAccountInfo(userId: UserId, info: ExternalAccountInfo)(implicit keySpace: KeySpace) = {
     val updateWhere = update.where(_.uuid eqs userId.uuid)
-    var setTos = MutableSeq.empty[ConcreteExternalAccountInfo => UpdateClause.Condition]
+    var setTos = MutableSeq.empty[ConcreteExternalAccountInfos => UpdateClause.Condition]
 
-    info.fbUserId.map(_.id)             .foreach { fid => setTos = setTos :+ { (_ : ConcreteExternalAccountInfo).fbUserId setTo fid.some }}
-    info.fbAuthToken.map(_.value)       .foreach { ft  => setTos = setTos :+ { (_ : ConcreteExternalAccountInfo).fbAuthToken setTo ft.some }}
-    info.googleUserId.map(_.id)         .foreach { gid => setTos = setTos :+ { (_ : ConcreteExternalAccountInfo).googleUserId setTo gid.some }}
-    info.googleAuthToken.map(_.value)   .foreach { gt  => setTos = setTos :+ { (_ : ConcreteExternalAccountInfo).googleAuthToken setTo gt.some }}
+    info.fbUserId.map(_.id)             .foreach { fid => setTos = setTos :+ { (_ : ConcreteExternalAccountInfos).fbUserId setTo fid.some }}
+    info.fbAuthToken.map(_.value)       .foreach { ft  => setTos = setTos :+ { (_ : ConcreteExternalAccountInfos).fbAuthToken setTo ft.some }}
+    info.googleUserId.map(_.id)         .foreach { gid => setTos = setTos :+ { (_ : ConcreteExternalAccountInfos).googleUserId setTo gid.some }}
+    info.googleAuthToken.map(_.value)   .foreach { gt  => setTos = setTos :+ { (_ : ConcreteExternalAccountInfos).googleAuthToken setTo gt.some }}
 
     setTos match {
       case MutableSeq() => None

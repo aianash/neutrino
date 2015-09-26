@@ -12,7 +12,7 @@ case class GoogleUserId(id: Long) extends SocialUserId
 case class GoogleAuthToken(value: String) extends SocialAuthToken
 
 // linked profiles
-case class ExternalAccount (
+case class ExternalAccountInfo (
   fbUserId        : Option[FBUserId],
   fbAuthToken     : Option[FBAuthToken],
   googleUserId    : Option[GoogleUserId],

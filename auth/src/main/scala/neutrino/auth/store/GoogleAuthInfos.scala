@@ -16,9 +16,9 @@ import neutrino.core.user._
 import neutrino.auth.AuthSettings
 
 
-sealed class AuthByGoogleUId extends CassandraTable[ConcreteAuthByGoogleUId, (UserId, GoogleAuthInfo)] {
+sealed class GoogleAuthInfos extends CassandraTable[ConcreteGoogleAuthInfos, (UserId, GoogleAuthInfo)] {
 
-  override val tableName = "google_auth_info"
+  override val tableName = "google_auth_infos"
 
   object googleUserId extends LongColumn(this) with PartitionKey[Long]
   object googleToken extends StringColumn(this)
@@ -36,7 +36,7 @@ sealed class AuthByGoogleUId extends CassandraTable[ConcreteAuthByGoogleUId, (Us
 }
 
 
-abstract class ConcreteAuthByGoogleUId(val settings: AuthSettings) extends AuthByGoogleUId {
+abstract class ConcreteGoogleAuthInfos(val settings: AuthSettings) extends GoogleAuthInfos {
 
   def insertGoogleAuthInfo(userId: UserId, info: GoogleAuthInfo)(implicit keySpace: KeySpace) =
     insert.value(_.googleUserId, info.googleUserId.id)
@@ -46,12 +46,12 @@ abstract class ConcreteAuthByGoogleUId(val settings: AuthSettings) extends AuthB
   def getGoogleAuthInfoByGoogleUId(id: GoogleUserId)(implicit keySpace: KeySpace) =
     select.where(_.googleUserId eqs id.id)
 
-  def updateAuthByGoogleUId(userId: UserId, info: GoogleAuthInfo)(implicit keySpace: KeySpace) = {
+  def updateGoogleAuthInfos(userId: UserId, info: GoogleAuthInfo)(implicit keySpace: KeySpace) = {
     val updateWhere = update.where(_.googleUserId eqs info.googleUserId.id)
-    var setTos = MutableSeq.empty[ConcreteAuthByGoogleUId => UpdateClause.Condition]
+    var setTos = MutableSeq.empty[ConcreteGoogleAuthInfos => UpdateClause.Condition]
 
-    setTos = setTos :+ { (_ : ConcreteAuthByGoogleUId).googleToken setTo info.token.value}
-    setTos = setTos :+ { (_ : ConcreteAuthByGoogleUId).userId setTo userId.uuid}
+    setTos = setTos :+ { (_ : ConcreteGoogleAuthInfos).googleToken setTo info.token.value}
+    setTos = setTos :+ { (_ : ConcreteGoogleAuthInfos).userId setTo userId.uuid}
 
     setTos match {
       case MutableSeq() => None

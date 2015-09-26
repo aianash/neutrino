@@ -18,7 +18,7 @@ trait SocialLoginHandler {
   def getUserId: Future[Option[UserId]]
   def getUserInfo(implicit ec: ExecutionContext): Future[User]
   def updateAuthTable(userId: UserId, userInfo: User): Future[Boolean]
-  def getExternalAccountInfo: ExternalAccount
+  def getExternalAccountInfo: ExternalAccountInfo
 
 }
 

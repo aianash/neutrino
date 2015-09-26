@@ -60,7 +60,7 @@ class FBLoginHandler(authInfo: FBAuthInfo, fbAuthDatastore: FBAuthDatastore) ext
   }
 
   def getExternalAccountInfo =
-    ExternalAccount(Some(authInfo.fbUserId), Some(authInfo.token), None, None)
+    ExternalAccountInfo(Some(authInfo.fbUserId), Some(authInfo.token), None, None)
 
   /**
    * Function to read facebook response and creates User

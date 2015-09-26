@@ -16,9 +16,9 @@ import neutrino.core.user._
 import neutrino.auth.AuthSettings
 
 
-sealed class AuthByFBUId extends CassandraTable[ConcreteAuthByFBUId, (UserId, FBAuthInfo)] {
+sealed class FBAuthInfos extends CassandraTable[ConcreteFBAuthInfos, (UserId, FBAuthInfo)] {
 
-  override def tableName = "fb_auth_info"
+  override def tableName = "fb_auth_infos"
 
   object fbUserId extends LongColumn(this) with PartitionKey[Long]
   object fbToken extends StringColumn(this)
@@ -36,7 +36,7 @@ sealed class AuthByFBUId extends CassandraTable[ConcreteAuthByFBUId, (UserId, FB
 }
 
 
-abstract class ConcreteAuthByFBUId(val settings: AuthSettings) extends AuthByFBUId {
+abstract class ConcreteFBAuthInfos(val settings: AuthSettings) extends FBAuthInfos {
 
   def insertFBAuthInfo(userId: UserId, info: FBAuthInfo)(implicit keySpace: KeySpace) =
     insert.value(_.fbUserId, info.fbUserId.id)
@@ -49,12 +49,12 @@ abstract class ConcreteAuthByFBUId(val settings: AuthSettings) extends AuthByFBU
   def getUserIdByFBUId(id: FBUserId)(implicit keySpace: KeySpace) =
     select(_.userId).where(_.fbUserId eqs id.id)
 
-  def updateAuthByFBUId(userId: UserId, info: FBAuthInfo)(implicit keySpace: KeySpace) = {
+  def updateFBAuthInfos(userId: UserId, info: FBAuthInfo)(implicit keySpace: KeySpace) = {
     val updateWhere = update.where(_.fbUserId eqs info.fbUserId.id)
-    var setTos = MutableSeq.empty[ConcreteAuthByFBUId => UpdateClause.Condition]
+    var setTos = MutableSeq.empty[ConcreteFBAuthInfos => UpdateClause.Condition]
 
-    setTos = setTos :+ { (_ : ConcreteAuthByFBUId).fbToken setTo info.token.value}
-    setTos = setTos :+ { (_ : ConcreteAuthByFBUId).userId setTo userId.uuid}
+    setTos = setTos :+ { (_ : ConcreteFBAuthInfos).fbToken setTo info.token.value}
+    setTos = setTos :+ { (_ : ConcreteFBAuthInfos).userId setTo userId.uuid}
 
     setTos match {
       case MutableSeq() => None
