@@ -18,6 +18,7 @@ trait SocialLoginHandler {
   def getUserId: Future[Option[UserId]]
   def getUserInfo(implicit ec: ExecutionContext): Future[User]
   def updateAuthTable(userId: UserId, userInfo: User): Future[Boolean]
+  def getExternalAccountInfo: ExternalAccount
 
 }
 
@@ -26,7 +27,7 @@ class SocialLoginHandlerFactory(settings: AuthSettings) {
   private val fbAuthDatastore = new FBAuthDatastore(settings)
   fbAuthDatastore.init()
 
-  def instanceFor(authInfo: AuthInfo) = authInfo match {
+  def instanceFor(authInfo: SocialAuthInfo) = authInfo match {
     case fbAuthInfo: FBAuthInfo         => new FBLoginHandler(fbAuthInfo, fbAuthDatastore)
     // case googleAuthInfo: GoogleAuthInfo => new GoogleLoginHandler(googleAuthInfo)
   }

@@ -38,8 +38,8 @@ class AuthenticationSupervisor extends Actor with ActorLogging {
 
   def receive = {
 
-    case AuthenticateUser(authInfo, suggestedUserIdO) =>
-      val handler = handlerFactory.instanceFor(authInfo)
+    case AuthenticateUser(socialAuthInfo, suggestedUserIdO) =>
+      val handler = handlerFactory.instanceFor(socialAuthInfo)
       handler.validate foreach {
         case Validated =>
           handler
@@ -70,7 +70,7 @@ class AuthenticationSupervisor extends Actor with ActorLogging {
                       sender() ! AuthStatus.Failure
                   }
                   .foreach { case (userId, userInfo) =>
-                    userAccount ! InsertUserInfo(userId, userInfo, authInfo)
+                    userAccount ! InsertUserInfo(userId, userInfo, handler.getExternalAccountInfo)
                     sender() ! AuthStatus.Success(userId, UserType.REGISTERED)
                   }
             }

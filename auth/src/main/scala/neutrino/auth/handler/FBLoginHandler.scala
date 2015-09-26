@@ -42,7 +42,8 @@ class FBLoginHandler(authInfo: FBAuthInfo, fbAuthDatastore: FBAuthDatastore) ext
   }
 
   def getUserId =
-    fbAuthDatastore.getUserId(authInfo.fbUserId, email)
+    if(isValidated) fbAuthDatastore.getUserId(authInfo.fbUserId, email)
+    else throw new Exception("FB auth token is not validated")
 
   def getUserInfo(implicit ec: ExecutionContext) = Future {
     val me = new BatchRequestBuilder("me").build()
@@ -57,6 +58,9 @@ class FBLoginHandler(authInfo: FBAuthInfo, fbAuthDatastore: FBAuthDatastore) ext
     val emailInfo = EmailAuthInfo(email, Some(authInfo.fbUserId), None)
     fbAuthDatastore.addFBAuthenticationInfo(userId, authInfo, emailInfo)
   }
+
+  def getExternalAccountInfo =
+    ExternalAccount(Some(authInfo.fbUserId), Some(authInfo.token), None, None)
 
   /**
    * Function to read facebook response and creates User

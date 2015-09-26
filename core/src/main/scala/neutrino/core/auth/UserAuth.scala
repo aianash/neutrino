@@ -19,19 +19,19 @@ case class ExternalAccount (
   googleAuthToken : Option[GoogleAuthToken]
   )
 
-sealed trait AuthInfo
+sealed trait SocialAuthInfo
 
 // Fb auth info
 case class FBAuthInfo (
   fbUserId : FBUserId,
   token    : FBAuthToken
-  ) extends AuthInfo
+  ) extends SocialAuthInfo
 
 // Google auth info
 case class GoogleAuthInfo (
   googleUserId : GoogleUserId,
   token        : GoogleAuthToken
-  ) extends AuthInfo
+  ) extends SocialAuthInfo
 
 // Email auth info
 case class EmailAuthInfo (
