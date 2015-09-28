@@ -65,6 +65,7 @@ object NeutrinoBuild extends Build with StandardLibraries {
       ++ Libs.restFb
       ++ Libs.playJson
       ++ Libs.phantom
+      ++ Libs.googleApiClient
   ).dependsOn(core, user)
 
   lazy val user = Project(

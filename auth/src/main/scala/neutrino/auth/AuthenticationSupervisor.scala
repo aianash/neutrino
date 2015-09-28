@@ -50,7 +50,21 @@ class AuthenticationSupervisor extends Actor with ActorLogging {
                 sender() ! AuthStatus.Failure
             }
             .foreach {
-              case Some(userId) => sender() ! AuthStatus.Success(userId, UserType.REGISTERED) 
+              case Some(userId) =>
+                (for {
+                  userInfo <- handler.getUserInfo
+                  success  <- handler.updateAuthInfo(userId, userInfo) if success
+                } yield true)
+                  .andThen {
+                    case Failure(NonFatal(ex)) =>
+                      log.error(ex, "Caught error [{}] while updating existing user", ex)
+                      sender() ! AuthStatus.Failure
+                  }
+                  .foreach { status =>
+                    userAccount ! UpdateExternalAccountInfo(userId, handler.getExternalAccountInfo)
+                    sender() ! AuthStatus.Success(userId, UserType.REGISTERED)
+                  }
+
               case None =>
                 val uuidF =
                   suggestedUserIdO
@@ -62,7 +76,7 @@ class AuthenticationSupervisor extends Actor with ActorLogging {
                 (for {
                   userId   <- uuidF.map(UserId(_))
                   userInfo <- handler.getUserInfo
-                  success  <- handler.updateAuthTable(userId, userInfo) if success
+                  success  <- handler.addAuthInfo(userId, userInfo) if success
                 } yield User(userId, userInfo))
                   .andThen {
                     case Failure(NonFatal(ex)) =>

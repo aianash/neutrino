@@ -19,6 +19,9 @@ class AuthSettings(cfg: Config) extends Extension {
   val CassandraKeyspace = config.getString("neutrino.auth.cassandraKeyspace")
   val ServiceId         = config.getLong("neutrino.service.id")
   val DatacenterId      = config.getLong("neutrino.datacenter.id")
+  val FBAppSecret       = config.getString("neutrino.auth.fb.app-secret")
+  val FBAppId           = config.getLong("neutrino.auth.fb.app-id")
+  val GoogleClientId    = config.getString("neutrino.auth.google.client-id")
 }
 
 

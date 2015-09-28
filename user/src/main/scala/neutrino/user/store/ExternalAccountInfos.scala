@@ -28,7 +28,7 @@ sealed class ExternalAccountInfos extends CassandraTable[ConcreteExternalAccount
   object fbAuthToken extends OptionalStringColumn(this)
 
   // google auth info
-  object googleUserId extends OptionalLongColumn(this)
+  object googleUserId extends OptionalStringColumn(this)
   object googleAuthToken extends OptionalStringColumn(this)
 
   def fromRow(row: Row) = {

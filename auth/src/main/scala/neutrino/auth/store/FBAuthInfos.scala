@@ -21,16 +21,16 @@ sealed class FBAuthInfos extends CassandraTable[ConcreteFBAuthInfos, (UserId, FB
   override def tableName = "fb_auth_infos"
 
   object fbUserId extends LongColumn(this) with PartitionKey[Long]
-  object fbToken extends StringColumn(this)
+  object fbAuthToken extends StringColumn(this)
   object userId extends LongColumn(this)
 
   def fromRow(row: Row) = {
-    val fbUserIdV = FBUserId(fbUserId(row))
-    val fbTokenV  = FBAuthToken(fbToken(row))
-    val userIdV   = UserId(userId(row))
+    val fbUserIdV    = FBUserId(fbUserId(row))
+    val fbAuthTokenV = FBAuthToken(fbAuthToken(row))
+    val userIdV      = UserId(userId(row))
     // suffix V represents that string represents a variable
 
-    (userIdV, FBAuthInfo(fbUserIdV, fbTokenV))
+    (userIdV, FBAuthInfo(fbUserIdV, fbAuthTokenV))
   }
 
 }
@@ -40,7 +40,7 @@ abstract class ConcreteFBAuthInfos(val settings: AuthSettings) extends FBAuthInf
 
   def insertFBAuthInfo(userId: UserId, info: FBAuthInfo)(implicit keySpace: KeySpace) =
     insert.value(_.fbUserId, info.fbUserId.id)
-      .value(_.fbToken, info.token.value)
+      .value(_.fbAuthToken, info.authToken.value)
       .value(_.userId, userId.uuid)
 
   def getFBAuthInfoByFBUId(id: FBUserId)(implicit keySpace: KeySpace) =
@@ -49,18 +49,18 @@ abstract class ConcreteFBAuthInfos(val settings: AuthSettings) extends FBAuthInf
   def getUserIdByFBUId(id: FBUserId)(implicit keySpace: KeySpace) =
     select(_.userId).where(_.fbUserId eqs id.id)
 
-  def updateFBAuthInfos(userId: UserId, info: FBAuthInfo)(implicit keySpace: KeySpace) = {
+  def updateFBAuthInfo(userId: UserId, info: FBAuthInfo)(implicit keySpace: KeySpace) = {
     val updateWhere = update.where(_.fbUserId eqs info.fbUserId.id)
     var setTos = MutableSeq.empty[ConcreteFBAuthInfos => UpdateClause.Condition]
 
-    setTos = setTos :+ { (_ : ConcreteFBAuthInfos).fbToken setTo info.token.value}
+    setTos = setTos :+ { (_ : ConcreteFBAuthInfos).fbAuthToken setTo info.authToken.value}
     setTos = setTos :+ { (_ : ConcreteFBAuthInfos).userId setTo userId.uuid}
 
     setTos match {
       case MutableSeq() => None
-      case MutableSeq(x) => updateWhere.modify(x)
+      case MutableSeq(x) => updateWhere.modify(x).some
       case MutableSeq(head, tail @ _*) =>
-        (tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) })
+        tail.foldLeft(updateWhere.modify(head)) { (updateWhere, cqlQuery) => updateWhere.and(cqlQuery) }.some
     }
   }
 

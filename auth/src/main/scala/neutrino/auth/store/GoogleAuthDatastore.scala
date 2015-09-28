@@ -13,11 +13,10 @@ import neutrino.core.user._
 import neutrino.core.auth._
 import neutrino.auth._
 
-
-class FBAuthDatastore(val settings: AuthSettings) extends AuthConnector {
+class GoogleAuthDatastore(val settings: AuthSettings) extends AuthConnector {
 
   object EmailAuthInfos extends ConcreteEmailAuthInfos(settings)
-  object FBAuthInfos extends ConcreteFBAuthInfos(settings)
+  object GoogleAuthInfos extends ConcreteGoogleAuthInfos(settings)
 
 
   /**
@@ -27,29 +26,29 @@ class FBAuthDatastore(val settings: AuthSettings) extends AuthConnector {
     val creation =
       for {
         _ <- EmailAuthInfos.create.ifNotExists.future()
-        _ <- FBAuthInfos.create.ifNotExists.future()
+        _ <- GoogleAuthInfos.create.ifNotExists.future()
       } yield true
 
     Await.result(creation, 2 seconds)
   }
 
-  def getUserId(fbUserId: FBUserId, email: Email) = {
+  def getUserId(googleUserId: GoogleUserId, email: Email) = {
     EmailAuthInfos.getUserIdByEmail(email).one().filter(!_.isEmpty).recoverWith {
       case _: NoSuchElementException =>
-        FBAuthInfos.getUserIdByFBUId(fbUserId).one()
+        GoogleAuthInfos.getUserIdByGoogleUId(googleUserId).one()
     } map(_.map(UserId(_)))
   }
 
-  def addAuthInfo(userId: UserId, fbAuthInfo: FBAuthInfo, emailInfo: EmailAuthInfo) =
+  def addAuthInfo(userId: UserId, authInfo: GoogleAuthInfo, emailInfo: EmailAuthInfo) =
     Batch.logged
-      .add(FBAuthInfos.insertFBAuthInfo(userId, fbAuthInfo))
+      .add(GoogleAuthInfos.insertGoogleAuthInfo(userId, authInfo))
       .add(EmailAuthInfos.insertEmailAuthInfo(userId, emailInfo))
       .future().map(_ => true)
 
-  def updateAuthInfo(userId: UserId, authInfo: FBAuthInfo, emailInfo: EmailAuthInfo) = {
-    val fbUpdateQ = FBAuthInfos.updateFBAuthInfo(userId, authInfo)
-    val emailUpdateQ = EmailAuthInfos.updateEmailAuthInfo(userId, emailInfo)
-    val batch = List(fbUpdateQ, emailUpdateQ).flatten.foldLeft(Batch.logged) { (b, q) => b.add(q) }
+  def updateAuthInfo(userId: UserId, authInfo: GoogleAuthInfo, emailInfo: EmailAuthInfo) = {
+    val googleUpdateQO = GoogleAuthInfos.updateGoogleAuthInfo(userId, authInfo)
+    val emailUpdateQO  = EmailAuthInfos.updateEmailAuthInfo(userId, emailInfo)
+    val batch = List(googleUpdateQO, emailUpdateQO).flatten.foldLeft(Batch.logged) { (b, q) => b.add(q) }
     batch.future().map(_ => true)
   }
 

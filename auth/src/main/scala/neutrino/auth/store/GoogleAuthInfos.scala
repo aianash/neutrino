@@ -20,17 +20,19 @@ sealed class GoogleAuthInfos extends CassandraTable[ConcreteGoogleAuthInfos, (Us
 
   override val tableName = "google_auth_infos"
 
-  object googleUserId extends LongColumn(this) with PartitionKey[Long]
-  object googleToken extends StringColumn(this)
+  object googleUserId extends StringColumn(this) with PartitionKey[String]
+  object googleAuthToken extends StringColumn(this)
+  object googleIdToken extends StringColumn(this)
   object userId extends LongColumn(this)
 
   def fromRow(row: Row) = {
-    val googleUserIdV = GoogleUserId(googleUserId(row))
-    val googleTokenV  = GoogleAuthToken(googleToken(row))
-    val userIdV       = UserId(userId(row))
+    val googleUserIdV    = GoogleUserId(googleUserId(row))
+    val googleAuthTokenV = GoogleAuthToken(googleAuthToken(row))
+    val userIdV          = UserId(userId(row))
+    val googleIdTokenV   = GoogleIdToken(googleIdToken(row))
     // suffix V represents that string represents a variable
 
-    (userIdV, GoogleAuthInfo(googleUserIdV, googleTokenV))
+    (userIdV, GoogleAuthInfo(googleUserIdV, googleAuthTokenV, googleIdTokenV))
   }
 
 }
@@ -40,18 +42,23 @@ abstract class ConcreteGoogleAuthInfos(val settings: AuthSettings) extends Googl
 
   def insertGoogleAuthInfo(userId: UserId, info: GoogleAuthInfo)(implicit keySpace: KeySpace) =
     insert.value(_.googleUserId, info.googleUserId.id)
-      .value(_.googleToken, info.token.value)
+      .value(_.googleAuthToken, info.authToken.value)
+      .value(_.googleIdToken, info.idToken.value)
       .value(_.userId, userId.uuid)
 
   def getGoogleAuthInfoByGoogleUId(id: GoogleUserId)(implicit keySpace: KeySpace) =
     select.where(_.googleUserId eqs id.id)
 
-  def updateGoogleAuthInfos(userId: UserId, info: GoogleAuthInfo)(implicit keySpace: KeySpace) = {
+  def getUserIdByGoogleUId(id: GoogleUserId)(implicit keySpace: KeySpace) =
+    select(_.userId).where(_.googleUserId eqs id.id)
+
+  def updateGoogleAuthInfo(userId: UserId, info: GoogleAuthInfo)(implicit keySpace: KeySpace) = {
     val updateWhere = update.where(_.googleUserId eqs info.googleUserId.id)
     var setTos = MutableSeq.empty[ConcreteGoogleAuthInfos => UpdateClause.Condition]
 
-    setTos = setTos :+ { (_ : ConcreteGoogleAuthInfos).googleToken setTo info.token.value}
+    setTos = setTos :+ { (_ : ConcreteGoogleAuthInfos).googleAuthToken setTo info.authToken.value}
     setTos = setTos :+ { (_ : ConcreteGoogleAuthInfos).userId setTo userId.uuid}
+    setTos = setTos :+ { (_ : ConcreteGoogleAuthInfos).googleIdToken setTo info.idToken.value}
 
     setTos match {
       case MutableSeq() => None

@@ -13,17 +13,18 @@ import neutrino.core.auth._
 import neutrino.core.user._
 import neutrino.auth.store._
 import neutrino.auth.restfb._
+import neutrino.auth._
 
 
 case class InvalidCredentialsException(message: String) extends Exception(message)
 
 
-class FBLoginHandler(authInfo: FBAuthInfo, fbAuthDatastore: FBAuthDatastore) extends SocialLoginHandler {
+class FBLoginHandler(authInfo: FBAuthInfo, datastore: FBAuthDatastore, settings: AuthSettings) extends SocialLoginHandler {
 
   private var isValidated = false;
   private var email = Email("");
 
-  private val fbClient = new DefaultFacebookClient(authInfo.token.value, "b59466a3500f21168131758c3dba4ce1", Version.VERSION_2_3)
+  private val fbClient = new DefaultFacebookClient(authInfo.authToken.value, settings.FBAppSecret, Version.VERSION_2_3)
 
   def validate(implicit ec: ExecutionContext) = Future {
     val me       = List(new BatchRequestBuilder("me?fields=id,email").build()).asJava
@@ -42,7 +43,7 @@ class FBLoginHandler(authInfo: FBAuthInfo, fbAuthDatastore: FBAuthDatastore) ext
   }
 
   def getUserId =
-    if(isValidated) fbAuthDatastore.getUserId(authInfo.fbUserId, email)
+    if(isValidated) datastore.getUserId(authInfo.fbUserId, email)
     else throw new Exception("FB auth token is not validated")
 
   def getUserInfo(implicit ec: ExecutionContext) = Future {
@@ -53,14 +54,18 @@ class FBLoginHandler(authInfo: FBAuthInfo, fbAuthDatastore: FBAuthDatastore) ext
     userInfo
   }
 
-  def updateAuthTable(userId: UserId, userInfo: UserInfo) = {
-    val email = userInfo.email.get
+  def addAuthInfo(userId: UserId, userInfo: UserInfo) = {
     val emailInfo = EmailAuthInfo(email, Some(authInfo.fbUserId), None)
-    fbAuthDatastore.addFBAuthenticationInfo(userId, authInfo, emailInfo)
+    datastore.addAuthInfo(userId, authInfo, emailInfo)
+  }
+
+  def updateAuthInfo(userId: UserId, userInfo: UserInfo) = {
+    val emailInfo = EmailAuthInfo(email, Some(authInfo.fbUserId), None)
+    datastore.updateAuthInfo(userId, authInfo, emailInfo)
   }
 
   def getExternalAccountInfo =
-    ExternalAccountInfo(Some(authInfo.fbUserId), Some(authInfo.token), None, None)
+    ExternalAccountInfo(Some(authInfo.fbUserId), Some(authInfo.authToken), None, None)
 
   /**
    * Function to read facebook response and creates User
@@ -88,7 +93,7 @@ class FBLoginHandler(authInfo: FBAuthInfo, fbAuthDatastore: FBAuthDatastore) ext
         country <- (mejson \ "location" \ "name").asOpt[String].map(_.split(",")(1).trim)
       } yield Location(city, country)
 
-    val usertype = UserType("registered")
+    val usertype = UserType.REGISTERED
     val avatar =
       for {
         small  <- (picturejson \ "data" \ "url").asOpt[String]

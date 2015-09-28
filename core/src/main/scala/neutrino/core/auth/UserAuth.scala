@@ -8,8 +8,9 @@ sealed trait SocialAuthToken
 case class FBUserId(id: Long) extends SocialUserId
 case class FBAuthToken(value: String) extends SocialAuthToken
 
-case class GoogleUserId(id: Long) extends SocialUserId
+case class GoogleUserId(id: String) extends SocialUserId
 case class GoogleAuthToken(value: String) extends SocialAuthToken
+case class GoogleIdToken(value: String)
 
 // linked profiles
 case class ExternalAccountInfo (
@@ -24,13 +25,14 @@ sealed trait SocialAuthInfo
 // Fb auth info
 case class FBAuthInfo (
   fbUserId : FBUserId,
-  token    : FBAuthToken
+  authToken    : FBAuthToken
   ) extends SocialAuthInfo
 
 // Google auth info
 case class GoogleAuthInfo (
   googleUserId : GoogleUserId,
-  token        : GoogleAuthToken
+  authToken    : GoogleAuthToken,
+  idToken      : GoogleIdToken
   ) extends SocialAuthInfo
 
 // Email auth info

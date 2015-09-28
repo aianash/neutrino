@@ -14,22 +14,36 @@ object TestAuth {
   import protocols._
 
   def main(args: Array[String]) {
+    // fbAuthTest
+    googleAuthTest
+
+  }
+
+  def googleAuthTest = {
+    val idToken = GoogleIdToken("")
+    val authToken = GoogleAuthToken("")
+    val userId = GoogleUserId("")
+    val authInfo = GoogleAuthInfo(userId, authToken, idToken)
 
     val system = ActorSystem("test")
     val as = AuthenticationSupervisor.props
     val supervisor = system.actorOf(as)
+    implicit val timeout = Timeout(2 seconds)
+    val result = supervisor ? AuthenticateUser(authInfo, None)
+  }
 
-    val authToken = "CAALYIU6LOQsBAKUq42VDuRglLPBu6LFnmKmqIuR5gvwvmiZCD1cjyDDVO9vh7VGxxvMYImU4xtwDFItjVZBYszBz4s53An2dwRrRxwinmIGwdHV0swx9QFVJisaV3UJhcYfi28DDZCoJvC8X5lS0hiTyZBozNDdeuXuWad46oHM7UJf1GxZBaPrjvkve6wodb8m5CHaIdIor0pchVansu"
-    val fbUserId = new FBUserId(947459488606587L)
-    val appId = "800587516688651"
+  def fbAuthTest = {
+    val system = ActorSystem("test")
+    val as = AuthenticationSupervisor.props
+    val supervisor = system.actorOf(as)
+
+    val authToken = ""
+    val fbUserId = new FBUserId(9L)
+    val appId = ""
 
     val authInfo = new FBAuthInfo(fbUserId, FBAuthToken(authToken))
     implicit val timeout = Timeout(2 seconds)
     val result = supervisor ? AuthenticateUser(authInfo, None)
-    // val authenticator = new FacebookAuthenticator
-
-    // authenticator.getUsersFacebookInfo(authInfo)
-
   }
 
 }
