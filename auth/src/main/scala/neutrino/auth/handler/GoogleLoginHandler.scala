@@ -9,7 +9,6 @@ import play.api.libs.json._
 import com.google.api.client.googleapis.auth.oauth2._, GoogleIdToken.Payload
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.jackson.JacksonFactory
-import com.google.api.client.googleapis.auth.oauth2._
 import com.google.api.services.oauth2._, Oauth2.Builder
 import com.google.api.services.oauth2.model.Userinfoplus
 
@@ -38,8 +37,6 @@ class GoogleLoginHandler(authInfo: GoogleAuthInfo, datastore: GoogleAuthDatastor
         .build
 
     val idToken = verifier.verify(authInfo.idToken.value)
-
-    println("id token: " + authInfo.idToken.value)
 
     if(idToken == null) NotValidated
     else {

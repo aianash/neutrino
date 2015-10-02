@@ -2,11 +2,11 @@ package neutrino.auth
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.Failure
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 import akka.actor.{Actor, ActorLogging, Props}
-import akka.pattern.ask
+import akka.pattern.pipe
 import akka.util.Timeout
 
 import goshoplane.commons.core.protocols.Implicits._
@@ -19,10 +19,6 @@ import neutrino.user.protocols._
 import neutrino.auth._
 import neutrino.auth.store._
 
-object AuthStatus {
-  case class Success(userId: UserId, userType: UserType)
-  case object Failure
-}
 
 class AuthenticationSupervisor extends Actor with ActorLogging {
 
@@ -40,58 +36,72 @@ class AuthenticationSupervisor extends Actor with ActorLogging {
 
     case AuthenticateUser(socialAuthInfo, suggestedUserIdO) =>
       val handler = handlerFactory.instanceFor(socialAuthInfo)
-      handler.validate foreach {
-        case Validated =>
-          handler
-            .getUserId
-            .andThen {
-              case Failure(NonFatal(ex)) =>
-                log.error(ex, "Caught error [{}] while getting user id", ex)
-                sender() ! AuthStatus.Failure
+      handler.validate.flatMap {
+        case NotValidated => Future.successful(AuthStatus.Failure.InvalidCredentials("Invalid credentials"))
+        case Validated    =>
+          handler.getUserId.flatMap(
+            _.EITHER {
+              userId =>
+                updateExistingUser(handler, userId)
+                  .map(_ => AuthStatus.Success(userId, UserType.REGISTERED, false))
+            } OR {
+              for {
+                userId <- chooseUserId(suggestedUserIdO)
+                _      <- createNewUser(handler, userId)
+              } yield AuthStatus.Success(userId, UserType.REGISTERED, true)
             }
-            .foreach {
-              case Some(userId) =>
-                (for {
-                  userInfo <- handler.getUserInfo
-                  success  <- handler.updateAuthInfo(userId, userInfo) if success
-                } yield true)
-                  .andThen {
-                    case Failure(NonFatal(ex)) =>
-                      log.error(ex, "Caught error [{}] while updating existing user", ex)
-                      sender() ! AuthStatus.Failure
-                  }
-                  .foreach { status =>
-                    userAccount ! UpdateExternalAccountInfo(userId, handler.getExternalAccountInfo)
-                    sender() ! AuthStatus.Success(userId, UserType.REGISTERED)
-                  }
+          )
+      }.recover {
+        case NonFatal(ex) =>
+          log.error(ex, "Error occurred while authenitcating user")
+          AuthStatus.Failure.InternalServerError
+      } pipeTo sender()
 
-              case None =>
-                val uuidF =
-                  suggestedUserIdO
-                    .map(x => Future(x.uuid))
-                    .getOrElse {
-                      implicit val timeout = Timeout(2 seconds)
-                      (uuid ?= NextId("user")).map(_.get)
-                    }
-                (for {
-                  userId   <- uuidF.map(UserId(_))
-                  userInfo <- handler.getUserInfo
-                  success  <- handler.addAuthInfo(userId, userInfo) if success
-                } yield User(userId, userInfo))
-                  .andThen {
-                    case Failure(NonFatal(ex)) =>
-                      log.error(ex, "Caught error [{}] while creating new user", ex)
-                      sender() ! AuthStatus.Failure
-                  }
-                  .foreach { case user: User =>
-                    userAccount ! InsertUser(user, handler.getExternalAccountInfo)
-                    sender() ! AuthStatus.Success(user.id, UserType.REGISTERED)
-                  }
-            }
+  }
 
-        case NotValidated => sender() ! AuthStatus.Failure
+  implicit class OptionEitherOr[T](opt: Option[T]) {
+    def EITHER[R](either: T => R) =
+      new {
+        def OR(or: => R) =
+          opt match {
+            case Some(a) => either(a)
+            case None => or
+          }
+      }
+  }
+
+  private def updateExistingUser(handler: SocialLoginHandler, userId: UserId) = {
+    (for {
+      userInfo <- handler.getUserInfo
+      success  <- handler.updateAuthInfo(userId, userInfo) if success
+    } yield {
+      userAccount ! UpdateExternalAccountInfo(userId, handler.getExternalAccountInfo)
+      success
+    }).recoverWith {
+      case NonFatal(ex) => Future.failed[AuthStatus](new Exception("Error while updating user", ex))
+    }
+  }
+
+  private def chooseUserId(suggestedUserIdO: Option[UserId]) =
+    suggestedUserIdO
+      .map(Future.successful(_))
+      .getOrElse {
+        implicit val timeout = Timeout(2 seconds)
+        (uuid ?= NextId("user")).map(id => UserId(id.get))
       }
 
+  private def createNewUser(handler: SocialLoginHandler, userId: UserId) = {
+    (for {
+      userInfo <- handler.getUserInfo
+      success  <- handler.addAuthInfo(userId, userInfo) if success
+    } yield User(userId, userInfo))
+    .andThen {
+      case Success(user) =>
+        userAccount ! InsertUser(user, handler.getExternalAccountInfo)
+    }
+    .recoverWith {
+      case NonFatal(ex) => Future.failed[AuthStatus](new Exception("Error while creating user", ex))
+    }
   }
 
 }
