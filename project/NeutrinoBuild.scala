@@ -81,6 +81,8 @@ object NeutrinoBuild extends Build with StandardLibraries {
       ++ Libs.playJson
       ++ Libs.phantom
       ++ Libs.googleApiClient
+      ++ Libs.googleHttpClient
+      ++ Libs.googleApisOAuth2
   ).dependsOn(core, user)
 
 

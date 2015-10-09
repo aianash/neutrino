@@ -28,6 +28,6 @@ addSbtPlugin("me.lessis" % "ls-sbt" % "0.1.3")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.0.2")
 
-addSbtPlugin("com.goshoplane" % "sbt-standard-libraries" % "0.1.1")
+addSbtPlugin("com.goshoplane" % "sbt-standard-libraries" % "0.1.2")
 
 scalaVersion := "2.10.4"
