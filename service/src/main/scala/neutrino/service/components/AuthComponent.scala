@@ -7,8 +7,8 @@ import commons.microservice.Component
 import neutrino.auth._
 
 case object AuthComponent extends Component {
-  val name = "neutrino-auth"
-  val runOnRole = "neutrino-auth"
+  val name = "authentication-supervisor"
+  val runOnRole = "authentication-supervisor"
   def start(system: ActorSystem) = {
     system.actorOf(AuthenticationSupervisor.props, name)
   }

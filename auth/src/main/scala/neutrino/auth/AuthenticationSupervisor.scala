@@ -8,6 +8,7 @@ import scala.util.control.NonFatal
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.pattern.pipe
 import akka.util.Timeout
+import akka.routing.FromConfig
 
 import goshoplane.commons.core.protocols.Implicits._
 import goshoplane.commons.core.services.{UUIDGenerator, NextId}
@@ -29,12 +30,13 @@ class AuthenticationSupervisor extends Actor with ActorLogging {
   private val settings       = AuthSettings(context.system)
   private val handlerFactory = new SocialLoginHandlerFactory(settings)
   private val uuid           = context.actorOf(UUIDGenerator.props(settings.ServiceId, settings.DatacenterId))
-  private val userAccount    = context.actorOf(UserAccountSupervisor.props)
+  private val userAccount    = context.actorOf(FromConfig.props, name = "user-account-supervisor")
   context watch uuid
 
   def receive = {
 
     case AuthenticateUser(socialAuthInfo, suggestedUserIdO) =>
+      println("DEBUG: Inside AuthenticateUser of AuthenticationSupervisor")
       val handler = handlerFactory.instanceFor(socialAuthInfo)
       handler.validate.flatMap {
         case NotValidated => Future.successful(AuthStatus.Failure.InvalidCredentials("Invalid credentials"))
