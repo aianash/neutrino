@@ -118,7 +118,7 @@ object NeutrinoBuild extends Build with StandardLibraries {
       ++ Libs.akka
       ++ Libs.scaldi
       ++ Libs.microservice
-      ++ Seq("com.typesafe.akka" %% "akka-cluster" % "2.4.0"),
+      ++ Libs.akkaCluster,
 
     makeScript <<= (stage in Universal, stagingDirectory in Universal, baseDirectory in ThisBuild, streams) map { (_, dir, cwd, streams) =>
       var path = dir / "bin" / "neutrino-service"
