@@ -12,8 +12,8 @@ import goshoplane.commons.core.protocols.Implicits._
 import goshoplane.commons.core.services.{UUIDGenerator, NextId}
 
 import neutrino.user.store._
+import neutrino.core.user._
 
-import com.goshoplane.common._
 
 class UserAccountSupervisor extends Actor with ActorLogging {
 
@@ -24,64 +24,34 @@ class UserAccountSupervisor extends Actor with ActorLogging {
   import context.dispatcher
 
   private val userAccDatastore = new UserAccountDatastore(settings)
-  userAccDatastore.init()
+  val creationStatus = userAccDatastore.init()
+  if(!creationStatus) {
+    log.error("Caught error while initializing UserAccountDatastore")
+    context.stop(self)
+  }
 
   private val UUID = context.actorOf(UUIDGenerator.props(ServiceId, DatacenterId))
   context watch UUID
 
   def receive = {
 
-    case CreateOrUpdateUser(userInfo) =>
-      implicit val timeout = Timeout(1 seconds)
+    case InsertUser(user, extAccinfo) =>
+      for {
+        u <- userAccDatastore.insertUser(user)
+        e <- userAccDatastore.insertExternalAccountInfo(user.id, extAccinfo)
+      } yield true
 
-      userAccDatastore.checkIfExistingUser(userInfo)
-      .andThen {
-        case Failure(NonFatal(ex)) =>
-          log.error(ex, "Caught error while checking if existing user for user info = {}",
-                        ex.getMessage,
-                        userInfo)
-      } flatMap { userIdO =>
-        userIdO match {
-          case Some(userId) => // Update the existing user with the provided information
-            userAccDatastore.updateUser(userId, userInfo).map(_ => userId)
-            .andThen {
-              case Failure(NonFatal(ex)) =>
-                log.error(ex, "Caught error [{}] while update existing user id = {}",
-                              ex.getMessage,
-                              userId.uuid)
-            }
-          case None => // Create the new user with the provided information
-            (for {
-              uuid   <- (UUID ?= NextId("user")).map(_.get)
-              userId <- Future.successful(UserId(uuid = uuid))
-              _      <- userAccDatastore.createUser(userId, userInfo)
-            } yield userId).andThen {
-              case Failure(NonFatal(ex)) =>
-                log.error(ex, "Caught error [{}] while creating new user for userInfo = {}",
-                              ex.getMessage,
-                              userInfo)
-            }
-        }
-      } pipeTo sender()
+    case UpdateUser(user) =>
+      userAccDatastore.updateUser(user)
 
+    case UpdateExternalAccountInfo(userId, info) =>
+      userAccDatastore.updateExternalAccountInfo(userId, info)
 
+    case GetUser(userId) =>
+      userAccDatastore.getUser(userId) pipeTo sender()
 
-    case UpdateUser(userId, userInfo) =>
-      userAccDatastore.updateUser(userId, userInfo) pipeTo sender()
-
-
-
-    case GetUserDetail(userId) =>
-      userAccDatastore.getUserInfo(userId) pipeTo sender()
-
-
-
-    case GetFriendsForInvite(userId, filter) =>
-      userAccDatastore.getUserFriends(userId) pipeTo sender()
-
-
-    case GetFriendsDetails(userId, friendIds) =>
-      userAccDatastore.getUserFriends(userId, friendIds) pipeTo sender()
+    case GetExternalAccountInfo(userId) =>
+      userAccDatastore.getExternalAccountInfo(userId) pipeTo sender()
 
   }
 
