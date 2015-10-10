@@ -36,7 +36,6 @@ class AuthenticationSupervisor extends Actor with ActorLogging {
   def receive = {
 
     case AuthenticateUser(socialAuthInfo, suggestedUserIdO) =>
-      println("DEBUG: Inside AuthenticateUser of AuthenticationSupervisor")
       val handler = handlerFactory.instanceFor(socialAuthInfo)
       handler.validate.flatMap {
         case NotValidated => Future.successful(AuthStatus.Failure.InvalidCredentials("Invalid credentials"))

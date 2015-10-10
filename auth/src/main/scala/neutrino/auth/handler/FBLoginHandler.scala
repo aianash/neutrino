@@ -86,7 +86,6 @@ class FBLoginHandler(authInfo: FBAuthInfo, datastore: FBAuthDatastore, settings:
     val gender = (mejson \ "gender").asOpt[String].map(Gender(_))
     val locale = (mejson \ "locale").asOpt[String].map(Locale(_))
 
-    println((mejson \ "location" \ "name"))
     val location =
       for {
         city    <- (mejson \ "location" \ "name").asOpt[String].map(_.split(",")(0).trim)
