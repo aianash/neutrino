@@ -24,7 +24,7 @@ sealed trait SocialAuthInfo
 
 // Fb auth info
 case class FBAuthInfo (
-  fbUserId : FBUserId,
+  fbUserId     : FBUserId,
   authToken    : FBAuthToken
   ) extends SocialAuthInfo
 

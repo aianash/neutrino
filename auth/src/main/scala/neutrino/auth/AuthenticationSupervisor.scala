@@ -58,6 +58,18 @@ class AuthenticationSupervisor extends Actor with ActorLogging {
           AuthStatus.Failure.InternalServerError
       } pipeTo sender()
 
+    case CreateGuestUser =>
+      val userInfo = UserInfo(None, None, None, None, None, None, None, None, UserType.GUEST)
+      val externalAccInfo = ExternalAccountInfo(None, None, None, None)
+
+      implicit val timeout = Timeout(2 seconds)
+      (uuid ?= NextId("user")) map { id =>
+        val userId = UserId(id.get)
+        userAccount ! InsertUser(User(userId, userInfo), externalAccInfo)
+        AuthStatus.Success(userId, UserType.GUEST, true)
+      } pipeTo sender()
+
+
   }
 
   implicit class OptionEitherOr[T](opt: Option[T]) {
