@@ -8,3 +8,5 @@ import neutrino.core.user._
 sealed trait AuthenticationProtocols
 case class AuthenticateUser(authInfo: SocialAuthInfo, suggestedUserId: Option[UserId])
   extends AuthenticationProtocols with Replyable[AuthStatus]
+
+case object CreateGuestUser extends AuthenticationProtocols with Replyable[AuthStatus]
